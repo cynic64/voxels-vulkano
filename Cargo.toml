@@ -1,0 +1,16 @@
+[package]
+name = "cube"
+version = "0.1.0"
+authors = ["Steve Larsen <f3bl@gmx.com>"]
+edition = "2018"
+
+[dependencies]
+vulkano = "0.10"
+vulkano-shader-derive = "0.10"
+vulkano-shaders = "0.10"
+vulkano-win = "0.10"
+cgmath = "0.16"
+image = "0.19"
+winit = "0.17"
+time = "0.1.37"
+rand = "0.5"
