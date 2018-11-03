@@ -18,10 +18,15 @@ extern crate vulkano;
 extern crate vulkano_shader_derive;
 extern crate vulkano_win;
 
+// my stuff
+mod ca;
+
 use vulkano::sync::GpuFuture;
 use vulkano_win::VkSurfaceBuild;
 
 use std::sync::Arc;
+
+const SIZE: usize = 64;
 
 #[derive(Copy, Clone, Debug)]
 struct Vertex {
@@ -31,157 +36,55 @@ struct Vertex {
 
 impl_vertex!(Vertex, position, color);
 
+#[rustfmt::skip]
 const CUBE_VERTICES: [Vertex; 36] = [
-    Vertex {
-        position: (-0.5, -0.5, -0.5),
-        color: (1.0, 0.0, 0.0, 1.0),
-    },
-    Vertex {
-        position: (0.5, -0.5, -0.5),
-        color: (1.0, 0.0, 0.0, 1.0),
-    },
-    Vertex {
-        position: (0.5, 0.5, -0.5),
-        color: (1.0, 0.0, 0.0, 1.0),
-    },
-    Vertex {
-        position: (0.5, 0.5, -0.5),
-        color: (1.0, 0.0, 0.0, 1.0),
-    },
-    Vertex {
-        position: (-0.5, 0.5, -0.5),
-        color: (1.0, 0.0, 0.0, 1.0),
-    },
-    Vertex {
-        position: (-0.5, -0.5, -0.5),
-        color: (1.0, 0.0, 0.0, 1.0),
-    },
-    Vertex {
-        position: (-0.5, -0.5, 0.5),
-        color: (0.0, 1.0, 0.0, 1.0),
-    },
-    Vertex {
-        position: (0.5, 0.5, 0.5),
-        color: (0.0, 1.0, 0.0, 1.0),
-    },
-    Vertex {
-        position: (0.5, -0.5, 0.5),
-        color: (0.0, 1.0, 0.0, 1.0),
-    },
-    Vertex {
-        position: (0.5, 0.5, 0.5),
-        color: (0.0, 1.0, 0.0, 1.0),
-    },
-    Vertex {
-        position: (-0.5, -0.5, 0.5),
-        color: (0.0, 1.0, 0.0, 1.0),
-    },
-    Vertex {
-        position: (-0.5, 0.5, 0.5),
-        color: (0.0, 1.0, 0.0, 1.0),
-    },
-    Vertex {
-        position: (-0.5, 0.5, 0.5),
-        color: (0.0, 0.0, 1.0, 1.0),
-    },
-    Vertex {
-        position: (-0.5, -0.5, -0.5),
-        color: (0.0, 0.0, 1.0, 1.0),
-    },
-    Vertex {
-        position: (-0.5, 0.5, -0.5),
-        color: (0.0, 0.0, 1.0, 1.0),
-    },
-    Vertex {
-        position: (-0.5, -0.5, -0.5),
-        color: (0.0, 0.0, 1.0, 1.0),
-    },
-    Vertex {
-        position: (-0.5, 0.5, 0.5),
-        color: (0.0, 0.0, 1.0, 1.0),
-    },
-    Vertex {
-        position: (-0.5, -0.5, 0.5),
-        color: (0.0, 0.0, 1.0, 1.0),
-    },
-    Vertex {
-        position: (0.5, 0.5, 0.5),
-        color: (1.0, 1.0, 0.0, 1.0),
-    },
-    Vertex {
-        position: (0.5, 0.5, -0.5),
-        color: (1.0, 1.0, 0.0, 1.0),
-    },
-    Vertex {
-        position: (0.5, -0.5, -0.5),
-        color: (1.0, 1.0, 0.0, 1.0),
-    },
-    Vertex {
-        position: (0.5, -0.5, -0.5),
-        color: (1.0, 1.0, 0.0, 1.0),
-    },
-    Vertex {
-        position: (0.5, -0.5, 0.5),
-        color: (1.0, 1.0, 0.0, 1.0),
-    },
-    Vertex {
-        position: (0.5, 0.5, 0.5),
-        color: (1.0, 1.0, 0.0, 1.0),
-    },
-    Vertex {
-        position: (-0.5, -0.5, -0.5),
-        color: (1.0, 0.0, 1.0, 1.0),
-    },
-    Vertex {
-        position: (0.5, -0.5, 0.5),
-        color: (1.0, 0.0, 1.0, 1.0),
-    },
-    Vertex {
-        position: (0.5, -0.5, -0.5),
-        color: (1.0, 0.0, 1.0, 1.0),
-    },
-    Vertex {
-        position: (0.5, -0.5, 0.5),
-        color: (1.0, 0.0, 1.0, 1.0),
-    },
-    Vertex {
-        position: (-0.5, -0.5, -0.5),
-        color: (1.0, 0.0, 1.0, 1.0),
-    },
-    Vertex {
-        position: (-0.5, -0.5, 0.5),
-        color: (1.0, 0.0, 1.0, 1.0),
-    },
-    Vertex {
-        position: (-0.5, 0.5, -0.5),
-        color: (0.0, 1.0, 1.0, 1.0),
-    },
-    Vertex {
-        position: (0.5, 0.5, -0.5),
-        color: (0.0, 1.0, 1.0, 1.0),
-    },
-    Vertex {
-        position: (0.5, 0.5, 0.5),
-        color: (0.0, 1.0, 1.0, 1.0),
-    },
-    Vertex {
-        position: (0.5, 0.5, 0.5),
-        color: (0.0, 1.0, 1.0, 1.0),
-    },
-    Vertex {
-        position: (-0.5, 0.5, 0.5),
-        color: (0.0, 1.0, 1.0, 1.0),
-    },
-    Vertex {
-        position: (-0.5, 0.5, -0.5),
-        color: (0.0, 1.0, 1.0, 1.0),
-    },
+    Vertex { position: (-0.5, -0.5, -0.5), color: (1.0, 0.0, 0.0, 1.0), },
+    Vertex { position: ( 0.5, -0.5, -0.5), color: (1.0, 0.0, 0.0, 1.0), },
+    Vertex { position: ( 0.5,  0.5, -0.5), color: (1.0, 0.0, 0.0, 1.0), },
+    Vertex { position: ( 0.5,  0.5, -0.5), color: (1.0, 0.0, 0.0, 1.0), },
+    Vertex { position: (-0.5,  0.5, -0.5), color: (1.0, 0.0, 0.0, 1.0), },
+    Vertex { position: (-0.5, -0.5, -0.5), color: (1.0, 0.0, 0.0, 1.0), },
+    Vertex { position: (-0.5, -0.5,  0.5), color: (0.0, 1.0, 0.0, 1.0), },
+    Vertex { position: ( 0.5,  0.5,  0.5), color: (0.0, 1.0, 0.0, 1.0), },
+    Vertex { position: ( 0.5, -0.5,  0.5), color: (0.0, 1.0, 0.0, 1.0), },
+    Vertex { position: ( 0.5,  0.5,  0.5), color: (0.0, 1.0, 0.0, 1.0), },
+    Vertex { position: (-0.5, -0.5,  0.5), color: (0.0, 1.0, 0.0, 1.0), },
+    Vertex { position: (-0.5,  0.5,  0.5), color: (0.0, 1.0, 0.0, 1.0), },
+    Vertex { position: (-0.5,  0.5,  0.5), color: (0.0, 0.0, 1.0, 1.0), },
+    Vertex { position: (-0.5, -0.5, -0.5), color: (0.0, 0.0, 1.0, 1.0), },
+    Vertex { position: (-0.5,  0.5, -0.5), color: (0.0, 0.0, 1.0, 1.0), },
+    Vertex { position: (-0.5, -0.5, -0.5), color: (0.0, 0.0, 1.0, 1.0), },
+    Vertex { position: (-0.5,  0.5,  0.5), color: (0.0, 0.0, 1.0, 1.0), },
+    Vertex { position: (-0.5, -0.5,  0.5), color: (0.0, 0.0, 1.0, 1.0), },
+    Vertex { position: ( 0.5,  0.5,  0.5), color: (1.0, 1.0, 0.0, 1.0), },
+    Vertex { position: ( 0.5,  0.5, -0.5), color: (1.0, 1.0, 0.0, 1.0), },
+    Vertex { position: ( 0.5, -0.5, -0.5), color: (1.0, 1.0, 0.0, 1.0), },
+    Vertex { position: ( 0.5, -0.5, -0.5), color: (1.0, 1.0, 0.0, 1.0), },
+    Vertex { position: ( 0.5, -0.5,  0.5), color: (1.0, 1.0, 0.0, 1.0), },
+    Vertex { position: ( 0.5,  0.5,  0.5), color: (1.0, 1.0, 0.0, 1.0), },
+    Vertex { position: (-0.5, -0.5, -0.5), color: (1.0, 0.0, 1.0, 1.0), },
+    Vertex { position: ( 0.5, -0.5,  0.5), color: (1.0, 0.0, 1.0, 1.0), },
+    Vertex { position: ( 0.5, -0.5, -0.5), color: (1.0, 0.0, 1.0, 1.0), },
+    Vertex { position: ( 0.5, -0.5,  0.5), color: (1.0, 0.0, 1.0, 1.0), },
+    Vertex { position: (-0.5, -0.5, -0.5), color: (1.0, 0.0, 1.0, 1.0), },
+    Vertex { position: (-0.5, -0.5,  0.5), color: (1.0, 0.0, 1.0, 1.0), },
+    Vertex { position: (-0.5,  0.5, -0.5), color: (0.0, 1.0, 1.0, 1.0), },
+    Vertex { position: ( 0.5,  0.5, -0.5), color: (0.0, 1.0, 1.0, 1.0), },
+    Vertex { position: ( 0.5,  0.5,  0.5), color: (0.0, 1.0, 1.0, 1.0), },
+    Vertex { position: ( 0.5,  0.5,  0.5), color: (0.0, 1.0, 1.0, 1.0), },
+    Vertex { position: (-0.5,  0.5,  0.5), color: (0.0, 1.0, 1.0, 1.0), },
+    Vertex { position: (-0.5,  0.5, -0.5), color: (0.0, 1.0, 1.0, 1.0), },
 ];
 
 fn main() {
-    // The start of this example is exactly the same as `triangle`. You should read the
-    // `triangle` example if you haven't done so yet.
+    let positions = generate_positions();
+    let mut ca = ca::CellA::new(SIZE, SIZE, SIZE, 13, 26, 14, 26);
+    ca.randomize();
+    for _ in 0 .. 20 {
+        ca.next_gen()
+    }
 
+    //-------------------------------------------------------------------------------------//
     let extensions = vulkano_win::required_extensions();
     let instance = vulkano::instance::Instance::new(None, &extensions, None)
         .expect("failed to create instance");
@@ -257,7 +160,7 @@ fn main() {
     )
     .unwrap();
 
-    let vertices = create_vertices();
+    let vertices = generate_mesh(ca.cells, positions);
     let vertex_buffer = vulkano::buffer::cpu_access::CpuAccessibleBuffer::from_iter(
         device.clone(),
         vulkano::buffer::BufferUsage::all(),
@@ -535,6 +438,49 @@ fn create_vertices() -> Vec<Vertex> {
         .collect::<Vec<Vertex>>();
 
     vertices
+}
+
+fn generate_mesh ( cells: Vec<u8>, positions: Vec<(f32, f32, f32)> ) -> Vec<Vertex> {
+    cells.iter()
+        .enumerate()
+        .filter_map(|e| {
+            let idx = e.0;
+            let cell = e.1;
+
+            if *cell > 0 {
+                let offset = positions[idx];
+                Some(
+                    CUBE_VERTICES.iter().map(move |v| {
+                        let pos = v.position;
+                        let color = v.color;
+                        Vertex {
+                            position: (pos.0 + offset.0, pos.1 + offset.1, pos.2 + offset.2),
+                            color,
+                        }
+                    })
+                    .collect::<Vec<_>>()
+                )
+            } else {
+                None
+            }
+        })
+        .flatten()
+        .collect()
+}
+
+fn generate_positions ( ) -> Vec<(f32, f32, f32)> {
+    (0 .. SIZE).map(|y| {
+        (0 .. SIZE).map(|z| {
+            (0 .. SIZE).map(|x| {
+                (x as f32, y as f32, z as f32)
+            })
+            .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>()
+    })
+    .flatten()
+    .flatten()
+    .collect()
 }
 
 mod vs {
