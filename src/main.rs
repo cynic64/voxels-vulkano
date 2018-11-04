@@ -76,6 +76,8 @@ const CUBE_VERTICES: [Vertex; 36] = [
     Vertex { position: (-0.5,  0.5, -0.5), color: (0.0, 1.0, 1.0, 1.0), },
 ];
 
+const CUBE_INDICES: [u16; 3] = [0, 1, 2];
+
 fn main() {
     let positions = generate_positions();
     let mut ca = setup_ca();
@@ -170,6 +172,10 @@ fn main() {
     let scale = cgmath::Matrix4::from_scale(1.0);
 
     let mut vertex_buffer = update_vbuf(&ca.cells, &positions, device.clone());
+    let index_buffer = vulkano::buffer::cpu_access::CpuAccessibleBuffer
+                                ::from_iter(device.clone(), vulkano::buffer::BufferUsage::all(), CUBE_INDICES.iter().cloned())
+                                .expect("failed to create buffer");
+
 
     let uniform_buffer = vulkano::buffer::cpu_pool::CpuBufferPool::<vs::ty::Data>::new(
         device.clone(),
@@ -348,10 +354,11 @@ fn main() {
                 vec![[0.2, 0.2, 0.2, 1.0].into(), 1f32.into()],
             )
             .unwrap()
-            .draw(
+            .draw_indexed(
                 pipeline.clone(),
                 &dynamic_state,
                 vertex_buffer.clone(),
+                index_buffer.clone(),
                 set.clone(),
                 (),
             )
