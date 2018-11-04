@@ -11,11 +11,19 @@ pub struct CellA {
     max_surv: u8,
     min_birth: u8,
     max_birth: u8,
-    max_age: u8
+    max_age: u8,
 }
 
 impl CellA {
-    pub fn new ( width: usize, height: usize, length: usize, min_surv: u8, max_surv: u8, min_birth: u8, max_birth: u8 ) -> Self {
+    pub fn new(
+        width: usize,
+        height: usize,
+        length: usize,
+        min_surv: u8,
+        max_surv: u8,
+        min_birth: u8,
+        max_birth: u8,
+    ) -> Self {
         let cells = vec![0; width * height * length];
         let max_age = 1;
 
@@ -32,53 +40,53 @@ impl CellA {
         }
     }
 
-    pub fn randomize ( &mut self ) {
-        let cells = (0 .. self.width * self.height * self.length)
-            .map(|_| {
-                if rand::random() {
-                    1
-                } else {
-                    0
-                }
-            })
+    pub fn randomize(&mut self) {
+        let cells = (0..self.width * self.height * self.length)
+            .map(|_| if rand::random() { 1 } else { 0 })
             .collect();
 
         self.cells = cells;
     }
 
-    pub fn next_gen ( &mut self ) {
-        let new_cells = (0 .. self.width * self.height * self.length)
+    pub fn next_gen(&mut self) {
+        let new_cells = (0..self.width * self.height * self.length)
             .into_par_iter()
             .map(|idx| {
-                if (idx > self.width * self.height + self.width) && (idx < (self.width * self.height * self.length) - (self.width * self.height) - self.width - 1) {
+                if (idx > self.width * self.height + self.width)
+                    && (idx
+                        < (self.width * self.height * self.length)
+                            - (self.width * self.height)
+                            - self.width
+                            - 1)
+                {
                     let cur_state = self.cells[idx];
                     let neighbors = [
                         self.cells[idx + (self.width * self.height) + self.width + 1],
-                        self.cells[idx + (self.width * self.height) + self.width    ],
+                        self.cells[idx + (self.width * self.height) + self.width],
                         self.cells[idx + (self.width * self.height) + self.width - 1],
-                        self.cells[idx + (self.width * self.height)              + 1],
-                        self.cells[idx + (self.width * self.height)                 ],
-                        self.cells[idx + (self.width * self.height)              - 1],
+                        self.cells[idx + (self.width * self.height) + 1],
+                        self.cells[idx + (self.width * self.height)],
+                        self.cells[idx + (self.width * self.height) - 1],
                         self.cells[idx + (self.width * self.height) - self.width + 1],
-                        self.cells[idx + (self.width * self.height) - self.width    ],
+                        self.cells[idx + (self.width * self.height) - self.width],
                         self.cells[idx + (self.width * self.height) - self.width - 1],
-                        self.cells[idx                              + self.width + 1],
-                        self.cells[idx                              + self.width    ],
-                        self.cells[idx                              + self.width - 1],
-                        self.cells[idx                                           + 1],
-                        self.cells[idx                                           - 1],
-                        self.cells[idx                              - self.width + 1],
-                        self.cells[idx                              - self.width    ],
-                        self.cells[idx                              - self.width - 1],
+                        self.cells[idx + self.width + 1],
+                        self.cells[idx + self.width],
+                        self.cells[idx + self.width - 1],
+                        self.cells[idx + 1],
+                        self.cells[idx - 1],
+                        self.cells[idx - self.width + 1],
+                        self.cells[idx - self.width],
+                        self.cells[idx - self.width - 1],
                         self.cells[idx - (self.width * self.height) + self.width + 1],
-                        self.cells[idx - (self.width * self.height) + self.width    ],
+                        self.cells[idx - (self.width * self.height) + self.width],
                         self.cells[idx - (self.width * self.height) + self.width - 1],
-                        self.cells[idx - (self.width * self.height)              + 1],
-                        self.cells[idx - (self.width * self.height)                 ],
-                        self.cells[idx - (self.width * self.height)              - 1],
+                        self.cells[idx - (self.width * self.height) + 1],
+                        self.cells[idx - (self.width * self.height)],
+                        self.cells[idx - (self.width * self.height) - 1],
                         self.cells[idx - (self.width * self.height) - self.width + 1],
-                        self.cells[idx - (self.width * self.height) - self.width    ],
-                        self.cells[idx - (self.width * self.height) - self.width - 1]
+                        self.cells[idx - (self.width * self.height) - self.width],
+                        self.cells[idx - (self.width * self.height) - self.width - 1],
                     ];
 
                     let count: u8 = neighbors.iter().sum();

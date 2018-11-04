@@ -80,7 +80,7 @@ fn main() {
     let positions = generate_positions();
     let mut ca = ca::CellA::new(SIZE, SIZE, SIZE, 13, 26, 14, 26);
     ca.randomize();
-    for _ in 0 .. 20 {
+    for _ in 0..20 {
         ca.next_gen()
     }
 
@@ -160,13 +160,16 @@ fn main() {
     )
     .unwrap();
 
-    let vertices = generate_mesh(ca.cells, positions);
-    let vertex_buffer = vulkano::buffer::cpu_access::CpuAccessibleBuffer::from_iter(
+    let vertices = generate_mesh(&ca.cells, &positions);
+    // let (vertex_buffer, future) = vulkano::buffer::immutable::ImmutableBuffer::from_iter(
+    let mut vertex_buffer = vulkano::buffer::cpu_access::CpuAccessibleBuffer::from_iter(
         device.clone(),
-        vulkano::buffer::BufferUsage::all(),
+        vulkano::buffer::BufferUsage::vertex_buffer(),
         vertices.iter().cloned(),
+        // queue.clone()
     )
     .expect("failed to create buffer");
+    // future.flush().expect("failed to flush thingy");
 
     // note: this teapot was meant for OpenGL where the origin is at the lower left
     //       instead the origin is at the upper left in vulkan, so we reverse the Y axis
@@ -244,7 +247,10 @@ fn main() {
         scissors: None,
     };
 
+    let mut frame_count = 0;
+
     loop {
+        frame_count += 1;
         previous_frame.cleanup_finished();
 
         if recreate_swapchain {
@@ -397,69 +403,98 @@ fn main() {
                 event: winit::WindowEvent::CloseRequested,
                 ..
             } => done = true,
+            winit::Event::WindowEvent {
+                event: winit::WindowEvent::KeyboardInput {
+                    input: winit::KeyboardInput {
+                        virtual_keycode: Some(winit::VirtualKeyCode::N),
+                        ..
+                    },
+                    ..
+                },
+                ..
+            } => {
+                ca.next_gen();
+                let vertices = generate_mesh(&ca.cells, &positions);
+                vertex_buffer = vulkano::buffer::cpu_access::CpuAccessibleBuffer::from_iter(
+                    device.clone(),
+                    vulkano::buffer::BufferUsage::vertex_buffer(),
+                    vertices.iter().cloned(),
+                )
+                .expect("failed to create buffer");
+            },
             _ => (),
         });
+
         if done {
-            return;
+            break;
         }
     }
+
+    println!("Frames: {}", frame_count);
 }
 
-fn create_vertices() -> Vec<Vertex> {
-    let mut positions = Vec::new();
-    let count = 100;
-    let spread = 0.5;
-    for _ in 0..count {
-        let mut val_x: f32 = rand::random();
-        let mut val_y: f32 = rand::random();
-        let mut val_z: f32 = rand::random();
-        val_x -= 0.5;
-        val_y -= 0.5;
-        val_z -= 0.5;
-
-        let pos = [spread / val_x, spread / val_y, spread / val_z];
-
-        positions.push(pos);
-    }
-
-    let vertices = positions
+fn generate_mesh(cells: &[u8], positions: &[(f32, f32, f32)]) -> Vec<Vertex> {
+    cells
         .iter()
-        .map(|offset| {
-            CUBE_VERTICES.iter().map(move |v| {
-                let pos = v.position;
-                let color = v.color;
-                Vertex {
-                    position: (pos.0 + offset[0], pos.1 + offset[1], pos.2 + offset[2]),
-                    color,
-                }
-            })
-        })
-        .flatten()
-        .collect::<Vec<Vertex>>();
-
-    vertices
-}
-
-fn generate_mesh ( cells: Vec<u8>, positions: Vec<(f32, f32, f32)> ) -> Vec<Vertex> {
-    cells.iter()
         .enumerate()
         .filter_map(|e| {
             let idx = e.0;
             let cell = e.1;
 
             if *cell > 0 {
-                let offset = positions[idx];
-                Some(
-                    CUBE_VERTICES.iter().map(move |v| {
-                        let pos = v.position;
-                        let color = v.color;
-                        Vertex {
-                            position: (pos.0 + offset.0, pos.1 + offset.1, pos.2 + offset.2),
-                            color,
-                        }
-                    })
-                    .collect::<Vec<_>>()
-                )
+                // check whether it's visible or not
+                let neighbors = [
+                    cells[idx + (SIZE * SIZE) + SIZE + 1],
+                    cells[idx + (SIZE * SIZE) + SIZE],
+                    cells[idx + (SIZE * SIZE) + SIZE - 1],
+                    cells[idx + (SIZE * SIZE) + 1],
+                    cells[idx + (SIZE * SIZE)],
+                    cells[idx + (SIZE * SIZE) - 1],
+                    cells[idx + (SIZE * SIZE) - SIZE + 1],
+                    cells[idx + (SIZE * SIZE) - SIZE],
+                    cells[idx + (SIZE * SIZE) - SIZE - 1],
+                    cells[idx + SIZE + 1],
+                    cells[idx + SIZE],
+                    cells[idx + SIZE - 1],
+                    cells[idx + 1],
+                    cells[idx - 1],
+                    cells[idx - SIZE + 1],
+                    cells[idx - SIZE],
+                    cells[idx - SIZE - 1],
+                    cells[idx - (SIZE * SIZE) + SIZE + 1],
+                    cells[idx - (SIZE * SIZE) + SIZE],
+                    cells[idx - (SIZE * SIZE) + SIZE - 1],
+                    cells[idx - (SIZE * SIZE) + 1],
+                    cells[idx - (SIZE * SIZE)],
+                    cells[idx - (SIZE * SIZE) - 1],
+                    cells[idx - (SIZE * SIZE) - SIZE + 1],
+                    cells[idx - (SIZE * SIZE) - SIZE],
+                    cells[idx - (SIZE * SIZE) - SIZE - 1],
+                ];
+
+                let count: u8 = neighbors.iter().sum();
+                if count == 26 {
+                    None
+                } else {
+                    let offset = positions[idx];
+                    Some(
+                        CUBE_VERTICES
+                            .iter()
+                            .map(move |v| {
+                                let pos = v.position;
+                                let color = v.color;
+                                Vertex {
+                                    position: (
+                                        pos.0 + offset.0,
+                                        pos.1 + offset.1,
+                                        pos.2 + offset.2,
+                                    ),
+                                    color,
+                                }
+                            })
+                            .collect::<Vec<_>>(),
+                    )
+                }
             } else {
                 None
             }
@@ -468,19 +503,20 @@ fn generate_mesh ( cells: Vec<u8>, positions: Vec<(f32, f32, f32)> ) -> Vec<Vert
         .collect()
 }
 
-fn generate_positions ( ) -> Vec<(f32, f32, f32)> {
-    (0 .. SIZE).map(|y| {
-        (0 .. SIZE).map(|z| {
-            (0 .. SIZE).map(|x| {
-                (x as f32, y as f32, z as f32)
-            })
-            .collect::<Vec<_>>()
+fn generate_positions() -> Vec<(f32, f32, f32)> {
+    (0..SIZE)
+        .map(|y| {
+            (0..SIZE)
+                .map(|z| {
+                    (0..SIZE)
+                        .map(|x| (x as f32, y as f32, z as f32))
+                        .collect::<Vec<_>>()
+                })
+                .collect::<Vec<_>>()
         })
-        .collect::<Vec<_>>()
-    })
-    .flatten()
-    .flatten()
-    .collect()
+        .flatten()
+        .flatten()
+        .collect()
 }
 
 mod vs {
