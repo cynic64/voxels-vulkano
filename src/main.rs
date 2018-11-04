@@ -420,14 +420,48 @@ fn generate_indices(cells: &[u8]) -> Vec<u32> {
         .enumerate()
         .filter_map(|(idx, &state)| {
             if state > 0 {
-                let start_idx = idx * CUBE_VERTICES.len();
-                Some(
-                    CUBE_INDICES.iter()
-                        .map(|c_idx| {
-                            (start_idx as u32) + c_idx
-                        })
-                        .collect::<Vec<_>>()
-                )
+                // make sure this cell isn't totally obscured
+                let neighbors: u8 = [
+                    cells[idx + (SIZE * SIZE) + SIZE + 1],
+                    cells[idx + (SIZE * SIZE) + SIZE],
+                    cells[idx + (SIZE * SIZE) + SIZE - 1],
+                    cells[idx + (SIZE * SIZE) + 1],
+                    cells[idx + (SIZE * SIZE)],
+                    cells[idx + (SIZE * SIZE) - 1],
+                    cells[idx + (SIZE * SIZE) - SIZE + 1],
+                    cells[idx + (SIZE * SIZE) - SIZE],
+                    cells[idx + (SIZE * SIZE) - SIZE - 1],
+                    cells[idx + SIZE + 1],
+                    cells[idx + SIZE],
+                    cells[idx + SIZE - 1],
+                    cells[idx + 1],
+                    cells[idx - 1],
+                    cells[idx - SIZE + 1],
+                    cells[idx - SIZE],
+                    cells[idx - SIZE - 1],
+                    cells[idx - (SIZE * SIZE) + SIZE + 1],
+                    cells[idx - (SIZE * SIZE) + SIZE],
+                    cells[idx - (SIZE * SIZE) + SIZE - 1],
+                    cells[idx - (SIZE * SIZE) + 1],
+                    cells[idx - (SIZE * SIZE)],
+                    cells[idx - (SIZE * SIZE) - 1],
+                    cells[idx - (SIZE * SIZE) - SIZE + 1],
+                    cells[idx - (SIZE * SIZE) - SIZE],
+                    cells[idx - (SIZE * SIZE) - SIZE - 1],
+                ].iter().sum();
+
+                if neighbors < 26 {
+                    let start_idx = idx * CUBE_VERTICES.len();
+                    Some(
+                        CUBE_INDICES.iter()
+                            .map(|c_idx| {
+                                (start_idx as u32) + c_idx
+                            })
+                            .collect::<Vec<_>>()
+                    )
+                } else {
+                    None
+                }
             } else {
                 None
             }
