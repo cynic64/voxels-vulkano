@@ -26,7 +26,7 @@ use vulkano_win::VkSurfaceBuild;
 
 use std::sync::Arc;
 
-const SIZE: usize = 64;
+const SIZE: usize = 128;
 
 #[derive(Copy, Clone, Debug)]
 struct Vertex {
@@ -48,7 +48,10 @@ const CUBE_VERTICES: [Vertex; 8] = [
     Vertex { position: (-0.5,  0.5,  0.5), color: (0.0, 0.0, 0.0, 1.0) }
 ];
 
-const CUBE_INDICES: [u32; 36] = [0, 1, 3, 3, 1, 2, 1, 5, 2, 2, 5, 6, 5, 4, 6, 6, 4, 7, 4, 0, 7, 7, 0, 3, 3, 2, 7, 7, 2, 6, 4, 5, 0, 0, 5, 1];
+const CUBE_INDICES: [u32; 36] = [
+    0, 1, 3, 3, 1, 2, 1, 5, 2, 2, 5, 6, 5, 4, 6, 6, 4, 7, 4, 0, 7, 7, 0, 3, 3, 2, 7, 7, 2, 6, 4, 5,
+    0, 0, 5, 1,
+];
 
 fn main() {
     let positions = generate_positions();
@@ -144,10 +147,12 @@ fn main() {
     let scale = cgmath::Matrix4::from_scale(1.0);
 
     let (mut vertex_buffer, indices) = update_vbuf(&ca.cells, &positions, device.clone());
-    let index_buffer = vulkano::buffer::cpu_access::CpuAccessibleBuffer
-                                ::from_iter(device.clone(), vulkano::buffer::BufferUsage::all(), indices.iter().cloned())
-                                .expect("failed to create buffer");
-
+    let index_buffer = vulkano::buffer::cpu_access::CpuAccessibleBuffer::from_iter(
+        device.clone(),
+        vulkano::buffer::BufferUsage::all(),
+        indices.iter().cloned(),
+    )
+    .expect("failed to create buffer");
 
     let uniform_buffer = vulkano::buffer::cpu_pool::CpuBufferPool::<vs::ty::Data>::new(
         device.clone(),
@@ -394,29 +399,25 @@ fn main() {
 }
 
 fn generate_vertices(positions: &[(f32, f32, f32)]) -> Vec<Vertex> {
-    positions.iter()
+    positions
+        .iter()
         .map(|offset| {
-            CUBE_VERTICES
-                .iter()
-                .map(move |v| {
-                    let pos = v.position;
-                    let color = v.color;
-                    Vertex {
-                        position: (
-                            pos.0 + offset.0,
-                            pos.1 + offset.1,
-                            pos.2 + offset.2,
-                        ),
-                        color,
-                    }
-                })
+            CUBE_VERTICES.iter().map(move |v| {
+                let pos = v.position;
+                let color = v.color;
+                Vertex {
+                    position: (pos.0 + offset.0, pos.1 + offset.1, pos.2 + offset.2),
+                    color,
+                }
+            })
         })
         .flatten()
         .collect()
 }
 
 fn generate_indices(cells: &[u8]) -> Vec<u32> {
-    cells.iter()
+    cells
+        .iter()
         .enumerate()
         .filter_map(|(idx, &state)| {
             if state > 0 {
@@ -448,16 +449,17 @@ fn generate_indices(cells: &[u8]) -> Vec<u32> {
                     cells[idx - (SIZE * SIZE) - SIZE + 1],
                     cells[idx - (SIZE * SIZE) - SIZE],
                     cells[idx - (SIZE * SIZE) - SIZE - 1],
-                ].iter().sum();
+                ]
+                .iter()
+                .sum();
 
                 if neighbors < 26 {
                     let start_idx = idx * CUBE_VERTICES.len();
                     Some(
-                        CUBE_INDICES.iter()
-                            .map(|c_idx| {
-                                (start_idx as u32) + c_idx
-                            })
-                            .collect::<Vec<_>>()
+                        CUBE_INDICES
+                            .iter()
+                            .map(|c_idx| (start_idx as u32) + c_idx)
+                            .collect::<Vec<_>>(),
                     )
                 } else {
                     None
@@ -500,7 +502,10 @@ fn update_vbuf(
     cells: &[u8],
     positions: &[(f32, f32, f32)],
     device: std::sync::Arc<vulkano::device::Device>,
-) -> (std::sync::Arc<vulkano::buffer::cpu_access::CpuAccessibleBuffer<[Vertex]>>, Vec<u32>) {
+) -> (
+    std::sync::Arc<vulkano::buffer::cpu_access::CpuAccessibleBuffer<[Vertex]>>,
+    Vec<u32>,
+) {
     let vertices = generate_vertices(positions);
     let vertex_buffer = vulkano::buffer::cpu_access::CpuAccessibleBuffer::from_iter(
         device.clone(),
