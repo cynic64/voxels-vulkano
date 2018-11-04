@@ -37,46 +37,18 @@ struct Vertex {
 impl_vertex!(Vertex, position, color);
 
 #[rustfmt::skip]
-const CUBE_VERTICES: [Vertex; 36] = [
-    Vertex { position: (-0.5, -0.5, -0.5), color: (1.0, 0.0, 0.0, 1.0), },
-    Vertex { position: ( 0.5, -0.5, -0.5), color: (1.0, 0.0, 0.0, 1.0), },
-    Vertex { position: ( 0.5,  0.5, -0.5), color: (1.0, 0.0, 0.0, 1.0), },
-    Vertex { position: ( 0.5,  0.5, -0.5), color: (1.0, 0.0, 0.0, 1.0), },
-    Vertex { position: (-0.5,  0.5, -0.5), color: (1.0, 0.0, 0.0, 1.0), },
-    Vertex { position: (-0.5, -0.5, -0.5), color: (1.0, 0.0, 0.0, 1.0), },
-    Vertex { position: (-0.5, -0.5,  0.5), color: (0.0, 1.0, 0.0, 1.0), },
-    Vertex { position: ( 0.5,  0.5,  0.5), color: (0.0, 1.0, 0.0, 1.0), },
-    Vertex { position: ( 0.5, -0.5,  0.5), color: (0.0, 1.0, 0.0, 1.0), },
-    Vertex { position: ( 0.5,  0.5,  0.5), color: (0.0, 1.0, 0.0, 1.0), },
-    Vertex { position: (-0.5, -0.5,  0.5), color: (0.0, 1.0, 0.0, 1.0), },
-    Vertex { position: (-0.5,  0.5,  0.5), color: (0.0, 1.0, 0.0, 1.0), },
-    Vertex { position: (-0.5,  0.5,  0.5), color: (0.0, 0.0, 1.0, 1.0), },
-    Vertex { position: (-0.5, -0.5, -0.5), color: (0.0, 0.0, 1.0, 1.0), },
-    Vertex { position: (-0.5,  0.5, -0.5), color: (0.0, 0.0, 1.0, 1.0), },
-    Vertex { position: (-0.5, -0.5, -0.5), color: (0.0, 0.0, 1.0, 1.0), },
-    Vertex { position: (-0.5,  0.5,  0.5), color: (0.0, 0.0, 1.0, 1.0), },
-    Vertex { position: (-0.5, -0.5,  0.5), color: (0.0, 0.0, 1.0, 1.0), },
-    Vertex { position: ( 0.5,  0.5,  0.5), color: (1.0, 1.0, 0.0, 1.0), },
-    Vertex { position: ( 0.5,  0.5, -0.5), color: (1.0, 1.0, 0.0, 1.0), },
-    Vertex { position: ( 0.5, -0.5, -0.5), color: (1.0, 1.0, 0.0, 1.0), },
-    Vertex { position: ( 0.5, -0.5, -0.5), color: (1.0, 1.0, 0.0, 1.0), },
-    Vertex { position: ( 0.5, -0.5,  0.5), color: (1.0, 1.0, 0.0, 1.0), },
-    Vertex { position: ( 0.5,  0.5,  0.5), color: (1.0, 1.0, 0.0, 1.0), },
-    Vertex { position: (-0.5, -0.5, -0.5), color: (1.0, 0.0, 1.0, 1.0), },
-    Vertex { position: ( 0.5, -0.5,  0.5), color: (1.0, 0.0, 1.0, 1.0), },
-    Vertex { position: ( 0.5, -0.5, -0.5), color: (1.0, 0.0, 1.0, 1.0), },
-    Vertex { position: ( 0.5, -0.5,  0.5), color: (1.0, 0.0, 1.0, 1.0), },
-    Vertex { position: (-0.5, -0.5, -0.5), color: (1.0, 0.0, 1.0, 1.0), },
-    Vertex { position: (-0.5, -0.5,  0.5), color: (1.0, 0.0, 1.0, 1.0), },
-    Vertex { position: (-0.5,  0.5, -0.5), color: (0.0, 1.0, 1.0, 1.0), },
-    Vertex { position: ( 0.5,  0.5, -0.5), color: (0.0, 1.0, 1.0, 1.0), },
-    Vertex { position: ( 0.5,  0.5,  0.5), color: (0.0, 1.0, 1.0, 1.0), },
-    Vertex { position: ( 0.5,  0.5,  0.5), color: (0.0, 1.0, 1.0, 1.0), },
-    Vertex { position: (-0.5,  0.5,  0.5), color: (0.0, 1.0, 1.0, 1.0), },
-    Vertex { position: (-0.5,  0.5, -0.5), color: (0.0, 1.0, 1.0, 1.0), },
+const CUBE_VERTICES: [Vertex; 8] = [
+    Vertex { position: (-0.5, -0.5, -0.5), color: (1.0, 1.0, 1.0, 1.0) },
+    Vertex { position: ( 0.5, -0.5, -0.5), color: (0.0, 1.0, 1.0, 1.0) },
+    Vertex { position: ( 0.5,  0.5, -0.5), color: (1.0, 0.0, 1.0, 1.0) },
+    Vertex { position: (-0.5,  0.5, -0.5), color: (1.0, 1.0, 0.0, 1.0) },
+    Vertex { position: (-0.5, -0.5,  0.5), color: (0.0, 0.0, 1.0, 1.0) },
+    Vertex { position: ( 0.5, -0.5,  0.5), color: (1.0, 0.0, 0.0, 1.0) },
+    Vertex { position: ( 0.5,  0.5,  0.5), color: (0.0, 1.0, 0.0, 1.0) },
+    Vertex { position: (-0.5,  0.5,  0.5), color: (0.0, 0.0, 0.0, 1.0) }
 ];
 
-const CUBE_INDICES: [u16; 3] = [0, 1, 2];
+const CUBE_INDICES: [u16; 36] = [0, 1, 3, 3, 1, 2, 1, 5, 2, 2, 5, 6, 5, 4, 6, 6, 4, 7, 4, 0, 7, 7, 0, 3, 3, 2, 7, 7, 2, 6, 4, 5, 0, 0, 5, 1];
 
 fn main() {
     let positions = generate_positions();
