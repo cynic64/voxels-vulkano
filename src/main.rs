@@ -78,11 +78,7 @@ const CUBE_VERTICES: [Vertex; 36] = [
 
 fn main() {
     let positions = generate_positions();
-    let mut ca = ca::CellA::new(SIZE, SIZE, SIZE, 13, 26, 14, 26);
-    ca.randomize();
-    for _ in 0..20 {
-        ca.next_gen()
-    }
+    let mut ca = setup_ca();
 
     //-------------------------------------------------------------------------------------//
     let extensions = vulkano_win::required_extensions();
@@ -160,19 +156,6 @@ fn main() {
     )
     .unwrap();
 
-    let vertices = generate_mesh(&ca.cells, &positions);
-    // let (vertex_buffer, future) = vulkano::buffer::immutable::ImmutableBuffer::from_iter(
-    let mut vertex_buffer = vulkano::buffer::cpu_access::CpuAccessibleBuffer::from_iter(
-        device.clone(),
-        vulkano::buffer::BufferUsage::vertex_buffer(),
-        vertices.iter().cloned(),
-        // queue.clone()
-    )
-    .expect("failed to create buffer");
-    // future.flush().expect("failed to flush thingy");
-
-    // note: this teapot was meant for OpenGL where the origin is at the lower left
-    //       instead the origin is at the upper left in vulkan, so we reverse the Y axis
     let mut proj = cgmath::perspective(
         cgmath::Rad(std::f32::consts::FRAC_PI_2),
         { dimensions[0] as f32 / dimensions[1] as f32 },
@@ -182,9 +165,11 @@ fn main() {
     let view = cgmath::Matrix4::look_at(
         cgmath::Point3::new(0.3, 0.3, 20.0),
         cgmath::Point3::new(0.0, 0.0, 0.0),
-        cgmath::Vector3::new(0.0, -1.0, 0.0),
+        cgmath::Vector3::new(0.0, 1.0, 0.0),
     );
-    let scale = cgmath::Matrix4::from_scale(0.5);
+    let scale = cgmath::Matrix4::from_scale(1.0);
+
+    let mut vertex_buffer = update_vbuf(&ca.cells, &positions, device.clone());
 
     let uniform_buffer = vulkano::buffer::cpu_pool::CpuBufferPool::<vs::ty::Data>::new(
         device.clone(),
@@ -404,24 +389,20 @@ fn main() {
                 ..
             } => done = true,
             winit::Event::WindowEvent {
-                event: winit::WindowEvent::KeyboardInput {
-                    input: winit::KeyboardInput {
-                        virtual_keycode: Some(winit::VirtualKeyCode::N),
+                event:
+                    winit::WindowEvent::KeyboardInput {
+                        input:
+                            winit::KeyboardInput {
+                                virtual_keycode: Some(winit::VirtualKeyCode::N),
+                                ..
+                            },
                         ..
                     },
-                    ..
-                },
                 ..
             } => {
                 ca.next_gen();
-                let vertices = generate_mesh(&ca.cells, &positions);
-                vertex_buffer = vulkano::buffer::cpu_access::CpuAccessibleBuffer::from_iter(
-                    device.clone(),
-                    vulkano::buffer::BufferUsage::vertex_buffer(),
-                    vertices.iter().cloned(),
-                )
-                .expect("failed to create buffer");
-            },
+                vertex_buffer = update_vbuf(&ca.cells, &positions, device.clone());
+            }
             _ => (),
         });
 
@@ -517,6 +498,30 @@ fn generate_positions() -> Vec<(f32, f32, f32)> {
         .flatten()
         .flatten()
         .collect()
+}
+
+fn setup_ca() -> ca::CellA {
+    let mut ca = ca::CellA::new(SIZE, SIZE, SIZE, 13, 26, 14, 26);
+    ca.randomize();
+    for _ in 0..20 {
+        ca.next_gen()
+    }
+
+    ca
+}
+
+fn update_vbuf(
+    cells: &[u8],
+    positions: &[(f32, f32, f32)],
+    device: std::sync::Arc<vulkano::device::Device>,
+) -> std::sync::Arc<vulkano::buffer::cpu_access::CpuAccessibleBuffer<[Vertex]>> {
+    let vertices = generate_mesh(cells, positions);
+    vulkano::buffer::cpu_access::CpuAccessibleBuffer::from_iter(
+        device.clone(),
+        vulkano::buffer::BufferUsage::vertex_buffer(),
+        vertices.iter().cloned(),
+    )
+    .expect("failed to create buffer")
 }
 
 mod vs {
