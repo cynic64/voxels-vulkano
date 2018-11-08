@@ -5,6 +5,7 @@ authors = ["Steve Larsen <f3bl@gmx.com>"]
 edition = "2018"
 
 [dependencies]
+nalgebra-glm = "0.2"
 vulkano = "0.10"
 vulkano-shader-derive = "0.10"
 vulkano-shaders = "0.10"

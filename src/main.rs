@@ -7,7 +7,7 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-extern crate cgmath;
+extern crate nalgebra_glm as glm;
 extern crate rand;
 extern crate time;
 extern crate winit;
@@ -17,9 +17,11 @@ extern crate vulkano;
 #[macro_use]
 extern crate vulkano_shader_derive;
 extern crate vulkano_win;
+use winit::{Event, EventsLoop, KeyboardInput, VirtualKeyCode, WindowBuilder, WindowEvent, ElementState};
 
 // my stuff
 mod ca;
+mod camera;
 
 use vulkano::sync::GpuFuture;
 use vulkano_win::VkSurfaceBuild;
@@ -56,6 +58,7 @@ const CUBE_INDICES: [u32; 36] = [
 fn main() {
     let positions = generate_positions();
     let mut ca = setup_ca();
+    let mut cam = camera::Camera::default();
 
     //-------------------------------------------------------------------------------------//
     let extensions = vulkano_win::required_extensions();
@@ -72,9 +75,12 @@ fn main() {
     );
 
     let mut events_loop = winit::EventsLoop::new();
-    let surface = winit::WindowBuilder::new()
+    let surface = WindowBuilder::new()
         .build_vk_surface(&events_loop, instance.clone())
         .unwrap();
+
+    let window = surface.window();
+    window.hide_cursor(true);
 
     let mut dimensions;
 
@@ -133,18 +139,26 @@ fn main() {
     )
     .unwrap();
 
-    let mut proj = cgmath::perspective(
-        cgmath::Rad(std::f32::consts::FRAC_PI_2),
-        { dimensions[0] as f32 / dimensions[1] as f32 },
-        0.01,
-        100.0,
-    );
-    let view = cgmath::Matrix4::look_at(
-        cgmath::Point3::new(0.3, 0.3, 20.0),
-        cgmath::Point3::new(0.0, 0.0, 0.0),
-        cgmath::Vector3::new(0.0, 1.0, 0.0),
-    );
-    let scale = cgmath::Matrix4::from_scale(1.0);
+    // mvp
+    let model = glm::scale(
+        &glm::Mat4::identity(),
+        &glm::vec3(1.0, 1.0, 1.0),
+        );
+    let mut view = glm::look_at(
+        &glm::vec3(1., 0., 1.),
+        &glm::vec3(0., 0., 0.),
+        &glm::vec3(0., 1., 0.)
+        );
+    let projection = glm::perspective(
+        // fov
+        1.5,
+        // aspect ratio
+        16. / 9.,
+        // near
+        0.0001,
+        // far
+        100_000.
+        );
 
     let (mut vertex_buffer, indices) = update_vbuf(&ca.cells, &positions, device.clone());
     let index_buffer = vulkano::buffer::cpu_access::CpuAccessibleBuffer::from_iter(
@@ -215,9 +229,18 @@ fn main() {
         scissors: None,
     };
 
+    // mainloop
     let mut frame_count = 0;
+    struct KeysPressed {
+        w: bool, a: bool, s: bool, d: bool
+    }
+    let mut keys_pressed = KeysPressed { w: false, a: false, s: false, d: false };
+    let mut last_frame = std::time::Instant::now();
 
     loop {
+        let delta = get_elapsed(last_frame);
+        last_frame = std::time::Instant::now();
+
         frame_count += 1;
         previous_frame.cleanup_finished();
 
@@ -248,13 +271,7 @@ fn main() {
 
             framebuffers = None;
 
-            proj = cgmath::perspective(
-                cgmath::Rad(std::f32::consts::FRAC_PI_2),
-                { dimensions[0] as f32 / dimensions[1] as f32 },
-                0.01,
-                100.0,
-            );
-
+            // todo: fix aspect ratio on resize
             dynamic_state.viewports = Some(vec![vulkano::pipeline::viewport::Viewport {
                 origin: [0.0, 0.0],
                 dimensions: [dimensions[0] as f32, dimensions[1] as f32],
@@ -283,16 +300,19 @@ fn main() {
             );
         }
 
-        let uniform_buffer_subbuffer = {
-            let elapsed = rotation_start.elapsed();
-            let rotation =
-                elapsed.as_secs() as f64 + elapsed.subsec_nanos() as f64 / 1_000_000_000.0;
-            let rotation = cgmath::Matrix3::from_angle_y(cgmath::Rad(rotation as f32));
+        // camera
+        if keys_pressed.w { cam.move_forward(delta); }
+        if keys_pressed.s { cam.move_backward(delta); }
+        if keys_pressed.a { cam.move_left(delta); }
+        if keys_pressed.d { cam.move_right(delta); }
 
+        view = cam.get_view_matrix().into();
+
+        let uniform_buffer_subbuffer = {
             let uniform_data = vs::ty::Data {
-                world: cgmath::Matrix4::from(rotation).into(),
-                view: (view * scale).into(),
-                proj: proj.into(),
+                world: model.into(),
+                view: view.into(),
+                proj: projection.into(),
             };
 
             uniform_buffer.next(uniform_data).unwrap()
@@ -367,27 +387,40 @@ fn main() {
         }
 
         let mut done = false;
-        events_loop.poll_events(|ev| match ev {
-            winit::Event::WindowEvent {
-                event: winit::WindowEvent::CloseRequested,
-                ..
-            } => done = true,
-            winit::Event::WindowEvent {
-                event:
-                    winit::WindowEvent::KeyboardInput {
+        events_loop.poll_events(|event| {
+            if let winit::Event::WindowEvent { event, .. } = event {
+                match event {
+                    WindowEvent::CloseRequested => done = true,
+                    WindowEvent::KeyboardInput {
                         input:
-                            winit::KeyboardInput {
-                                virtual_keycode: Some(winit::VirtualKeyCode::N),
+                            KeyboardInput {
+                                virtual_keycode: Some(VirtualKeyCode::Escape),
                                 ..
                             },
                         ..
+                    } => done = true,
+                    WindowEvent::KeyboardInput { input: KeyboardInput { virtual_keycode: Some(VirtualKeyCode::N), state: ElementState::Pressed, .. }, .. } => {
+                        ca.next_gen();
+                        vertex_buffer = update_vbuf(&ca.cells, &positions, device.clone()).0;
                     },
-                ..
-            } => {
-                ca.next_gen();
-                vertex_buffer = update_vbuf(&ca.cells, &positions, device.clone()).0;
+                    WindowEvent::KeyboardInput { input: KeyboardInput { virtual_keycode: Some(VirtualKeyCode::W), state: ElementState::Pressed, .. }, .. } => { keys_pressed.w = true; },
+                    WindowEvent::KeyboardInput { input: KeyboardInput { virtual_keycode: Some(VirtualKeyCode::A), state: ElementState::Pressed, .. }, .. } => { keys_pressed.a = true; },
+                    WindowEvent::KeyboardInput { input: KeyboardInput { virtual_keycode: Some(VirtualKeyCode::S), state: ElementState::Pressed, .. }, .. } => { keys_pressed.s = true; },
+                    WindowEvent::KeyboardInput { input: KeyboardInput { virtual_keycode: Some(VirtualKeyCode::D), state: ElementState::Pressed, .. }, .. } => { keys_pressed.d = true; },
+                    WindowEvent::KeyboardInput { input: KeyboardInput { virtual_keycode: Some(VirtualKeyCode::W), state: ElementState::Released,.. }, .. } => { keys_pressed.w =false; },
+                    WindowEvent::KeyboardInput { input: KeyboardInput { virtual_keycode: Some(VirtualKeyCode::A), state: ElementState::Released,.. }, .. } => { keys_pressed.a =false; },
+                    WindowEvent::KeyboardInput { input: KeyboardInput { virtual_keycode: Some(VirtualKeyCode::S), state: ElementState::Released,.. }, .. } => { keys_pressed.s =false; },
+                    WindowEvent::KeyboardInput { input: KeyboardInput { virtual_keycode: Some(VirtualKeyCode::D), state: ElementState::Released,.. }, .. } => { keys_pressed.d =false; },
+
+                    WindowEvent::CursorMoved { position: p, .. } => {
+                        let (x_diff, y_diff) = (p.x - (dimensions[0] as f64 / 2.0), (p.y - dimensions[1] as f64 / 2.0));
+                        cam.mouse_move(x_diff as f32, y_diff as f32);
+                        window.set_cursor_position(winit::dpi::LogicalPosition { x: dimensions[0] as f64 / 2.0, y: dimensions[1] as f64 / 2.0 })
+                            .expect("Couldn't re-set cursor position!");
+                    },
+                    _ => {}
+                }
             }
-            _ => (),
         });
 
         if done {
@@ -562,6 +595,10 @@ fn update_vbuf(
     let indices = generate_indices(cells);
 
     (vertex_buffer, indices)
+}
+
+pub fn get_elapsed ( start: std::time::Instant ) -> f32 {
+    start.elapsed().as_secs() as f32 + start.elapsed().subsec_millis() as f32 / 1000.0
 }
 
 mod vs {
