@@ -151,13 +151,13 @@ fn main() {
         );
     let projection = glm::perspective(
         // fov
-        1.5,
+        1.0,
         // aspect ratio
         16. / 9.,
         // near
-        0.0001,
+        0.1,
         // far
-        100_000.
+        100_000_000.
         );
 
     let (mut vertex_buffer, indices) = update_vbuf(&ca.cells, &positions, device.clone());
