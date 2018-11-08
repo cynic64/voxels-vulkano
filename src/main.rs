@@ -26,7 +26,7 @@ use vulkano_win::VkSurfaceBuild;
 
 use std::sync::Arc;
 
-const SIZE: usize = 128;
+const SIZE: usize = 64;
 
 #[derive(Copy, Clone, Debug)]
 struct Vertex {
@@ -398,13 +398,58 @@ fn main() {
     println!("Frames: {}", frame_count);
 }
 
-fn generate_vertices(positions: &[(f32, f32, f32)]) -> Vec<Vertex> {
+fn generate_vertices(cells: &[u8], positions: &[(f32, f32, f32)]) -> Vec<Vertex> {
     positions
         .iter()
-        .map(|offset| {
+        .enumerate()
+        .map(|(idx, &offset)| {
+            let mut color;
+            if (idx > SIZE * SIZE + SIZE)
+                && (idx
+                    < (SIZE * SIZE * SIZE)
+                        - (SIZE * SIZE)
+                        - SIZE
+                        - 1)
+            {
+                let cur_state = cells[idx];
+                let neighbors = [
+                    cells[idx + (SIZE * SIZE) + SIZE + 1],
+                    cells[idx + (SIZE * SIZE) + SIZE],
+                    cells[idx + (SIZE * SIZE) + SIZE - 1],
+                    cells[idx + (SIZE * SIZE) + 1],
+                    cells[idx + (SIZE * SIZE)],
+                    cells[idx + (SIZE * SIZE) - 1],
+                    cells[idx + (SIZE * SIZE) - SIZE + 1],
+                    cells[idx + (SIZE * SIZE) - SIZE],
+                    cells[idx + (SIZE * SIZE) - SIZE - 1],
+                    cells[idx + SIZE + 1],
+                    cells[idx + SIZE],
+                    cells[idx + SIZE - 1],
+                    cells[idx + 1],
+                    cells[idx - 1],
+                    cells[idx - SIZE + 1],
+                    cells[idx - SIZE],
+                    cells[idx - SIZE - 1],
+                    cells[idx - (SIZE * SIZE) + SIZE + 1],
+                    cells[idx - (SIZE * SIZE) + SIZE],
+                    cells[idx - (SIZE * SIZE) + SIZE - 1],
+                    cells[idx - (SIZE * SIZE) + 1],
+                    cells[idx - (SIZE * SIZE)],
+                    cells[idx - (SIZE * SIZE) - 1],
+                    cells[idx - (SIZE * SIZE) - SIZE + 1],
+                    cells[idx - (SIZE * SIZE) - SIZE],
+                    cells[idx - (SIZE * SIZE) - SIZE - 1],
+                ];
+
+                let count: u8 = neighbors.iter().sum();
+                let value = 1.0 - ((count as f32) / 26.0);
+                color = (value, value, value, 1.0);
+            } else {
+                color = (1.0, 0.0, 0.0, 1.0);
+            }
+
             CUBE_VERTICES.iter().map(move |v| {
                 let pos = v.position;
-                let color = v.color;
                 Vertex {
                     position: (pos.0 + offset.0, pos.1 + offset.1, pos.2 + offset.2),
                     color,
@@ -506,7 +551,7 @@ fn update_vbuf(
     std::sync::Arc<vulkano::buffer::cpu_access::CpuAccessibleBuffer<[Vertex]>>,
     Vec<u32>,
 ) {
-    let vertices = generate_vertices(positions);
+    let vertices = generate_vertices(cells, positions);
     let vertex_buffer = vulkano::buffer::cpu_access::CpuAccessibleBuffer::from_iter(
         device.clone(),
         vulkano::buffer::BufferUsage::vertex_buffer(),
