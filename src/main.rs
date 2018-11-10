@@ -17,7 +17,9 @@ extern crate vulkano;
 #[macro_use]
 extern crate vulkano_shader_derive;
 extern crate vulkano_win;
-use winit::{Event, EventsLoop, KeyboardInput, VirtualKeyCode, WindowBuilder, WindowEvent, ElementState};
+use winit::{
+    ElementState, Event, EventsLoop, KeyboardInput, VirtualKeyCode, WindowBuilder, WindowEvent,
+};
 
 // my stuff
 mod ca;
@@ -140,15 +142,12 @@ fn main() {
     .unwrap();
 
     // mvp
-    let model = glm::scale(
-        &glm::Mat4::identity(),
-        &glm::vec3(1.0, 1.0, 1.0),
-        );
+    let model = glm::scale(&glm::Mat4::identity(), &glm::vec3(1.0, 1.0, 1.0));
     let mut view = glm::look_at(
         &glm::vec3(1., 0., 1.),
         &glm::vec3(0., 0., 0.),
-        &glm::vec3(0., 1., 0.)
-        );
+        &glm::vec3(0., 1., 0.),
+    );
     let projection = glm::perspective(
         // fov
         1.0,
@@ -157,8 +156,8 @@ fn main() {
         // near
         0.1,
         // far
-        100_000_000.
-        );
+        100_000_000.,
+    );
 
     let (mut vertex_buffer, indices) = update_vbuf(&ca.cells, &positions, device.clone());
     let index_buffer = vulkano::buffer::cpu_access::CpuAccessibleBuffer::from_iter(
@@ -232,9 +231,17 @@ fn main() {
     // mainloop
     let mut frame_count = 0;
     struct KeysPressed {
-        w: bool, a: bool, s: bool, d: bool
+        w: bool,
+        a: bool,
+        s: bool,
+        d: bool,
     }
-    let mut keys_pressed = KeysPressed { w: false, a: false, s: false, d: false };
+    let mut keys_pressed = KeysPressed {
+        w: false,
+        a: false,
+        s: false,
+        d: false,
+    };
     let mut last_frame = std::time::Instant::now();
 
     loop {
@@ -301,10 +308,18 @@ fn main() {
         }
 
         // camera
-        if keys_pressed.w { cam.move_forward(delta); }
-        if keys_pressed.s { cam.move_backward(delta); }
-        if keys_pressed.a { cam.move_left(delta); }
-        if keys_pressed.d { cam.move_right(delta); }
+        if keys_pressed.w {
+            cam.move_forward(delta);
+        }
+        if keys_pressed.s {
+            cam.move_backward(delta);
+        }
+        if keys_pressed.a {
+            cam.move_left(delta);
+        }
+        if keys_pressed.d {
+            cam.move_right(delta);
+        }
 
         view = cam.get_view_matrix().into();
 
@@ -399,25 +414,120 @@ fn main() {
                             },
                         ..
                     } => done = true,
-                    WindowEvent::KeyboardInput { input: KeyboardInput { virtual_keycode: Some(VirtualKeyCode::N), state: ElementState::Pressed, .. }, .. } => {
+                    WindowEvent::KeyboardInput {
+                        input:
+                            KeyboardInput {
+                                virtual_keycode: Some(VirtualKeyCode::N),
+                                state: ElementState::Pressed,
+                                ..
+                            },
+                        ..
+                    } => {
                         ca.next_gen();
                         vertex_buffer = update_vbuf(&ca.cells, &positions, device.clone()).0;
-                    },
-                    WindowEvent::KeyboardInput { input: KeyboardInput { virtual_keycode: Some(VirtualKeyCode::W), state: ElementState::Pressed, .. }, .. } => { keys_pressed.w = true; },
-                    WindowEvent::KeyboardInput { input: KeyboardInput { virtual_keycode: Some(VirtualKeyCode::A), state: ElementState::Pressed, .. }, .. } => { keys_pressed.a = true; },
-                    WindowEvent::KeyboardInput { input: KeyboardInput { virtual_keycode: Some(VirtualKeyCode::S), state: ElementState::Pressed, .. }, .. } => { keys_pressed.s = true; },
-                    WindowEvent::KeyboardInput { input: KeyboardInput { virtual_keycode: Some(VirtualKeyCode::D), state: ElementState::Pressed, .. }, .. } => { keys_pressed.d = true; },
-                    WindowEvent::KeyboardInput { input: KeyboardInput { virtual_keycode: Some(VirtualKeyCode::W), state: ElementState::Released,.. }, .. } => { keys_pressed.w =false; },
-                    WindowEvent::KeyboardInput { input: KeyboardInput { virtual_keycode: Some(VirtualKeyCode::A), state: ElementState::Released,.. }, .. } => { keys_pressed.a =false; },
-                    WindowEvent::KeyboardInput { input: KeyboardInput { virtual_keycode: Some(VirtualKeyCode::S), state: ElementState::Released,.. }, .. } => { keys_pressed.s =false; },
-                    WindowEvent::KeyboardInput { input: KeyboardInput { virtual_keycode: Some(VirtualKeyCode::D), state: ElementState::Released,.. }, .. } => { keys_pressed.d =false; },
+                    }
+                    WindowEvent::KeyboardInput {
+                        input:
+                            KeyboardInput {
+                                virtual_keycode: Some(VirtualKeyCode::W),
+                                state: ElementState::Pressed,
+                                ..
+                            },
+                        ..
+                    } => {
+                        keys_pressed.w = true;
+                    }
+                    WindowEvent::KeyboardInput {
+                        input:
+                            KeyboardInput {
+                                virtual_keycode: Some(VirtualKeyCode::A),
+                                state: ElementState::Pressed,
+                                ..
+                            },
+                        ..
+                    } => {
+                        keys_pressed.a = true;
+                    }
+                    WindowEvent::KeyboardInput {
+                        input:
+                            KeyboardInput {
+                                virtual_keycode: Some(VirtualKeyCode::S),
+                                state: ElementState::Pressed,
+                                ..
+                            },
+                        ..
+                    } => {
+                        keys_pressed.s = true;
+                    }
+                    WindowEvent::KeyboardInput {
+                        input:
+                            KeyboardInput {
+                                virtual_keycode: Some(VirtualKeyCode::D),
+                                state: ElementState::Pressed,
+                                ..
+                            },
+                        ..
+                    } => {
+                        keys_pressed.d = true;
+                    }
+                    WindowEvent::KeyboardInput {
+                        input:
+                            KeyboardInput {
+                                virtual_keycode: Some(VirtualKeyCode::W),
+                                state: ElementState::Released,
+                                ..
+                            },
+                        ..
+                    } => {
+                        keys_pressed.w = false;
+                    }
+                    WindowEvent::KeyboardInput {
+                        input:
+                            KeyboardInput {
+                                virtual_keycode: Some(VirtualKeyCode::A),
+                                state: ElementState::Released,
+                                ..
+                            },
+                        ..
+                    } => {
+                        keys_pressed.a = false;
+                    }
+                    WindowEvent::KeyboardInput {
+                        input:
+                            KeyboardInput {
+                                virtual_keycode: Some(VirtualKeyCode::S),
+                                state: ElementState::Released,
+                                ..
+                            },
+                        ..
+                    } => {
+                        keys_pressed.s = false;
+                    }
+                    WindowEvent::KeyboardInput {
+                        input:
+                            KeyboardInput {
+                                virtual_keycode: Some(VirtualKeyCode::D),
+                                state: ElementState::Released,
+                                ..
+                            },
+                        ..
+                    } => {
+                        keys_pressed.d = false;
+                    }
 
                     WindowEvent::CursorMoved { position: p, .. } => {
-                        let (x_diff, y_diff) = (p.x - (dimensions[0] as f64 / 2.0), (p.y - dimensions[1] as f64 / 2.0));
+                        let (x_diff, y_diff) = (
+                            p.x - (dimensions[0] as f64 / 2.0),
+                            (p.y - dimensions[1] as f64 / 2.0),
+                        );
                         cam.mouse_move(x_diff as f32, y_diff as f32);
-                        window.set_cursor_position(winit::dpi::LogicalPosition { x: dimensions[0] as f64 / 2.0, y: dimensions[1] as f64 / 2.0 })
+                        window
+                            .set_cursor_position(winit::dpi::LogicalPosition {
+                                x: dimensions[0] as f64 / 2.0,
+                                y: dimensions[1] as f64 / 2.0,
+                            })
                             .expect("Couldn't re-set cursor position!");
-                    },
+                    }
                     _ => {}
                 }
             }
@@ -437,12 +547,7 @@ fn generate_vertices(cells: &[u8], positions: &[(f32, f32, f32)]) -> Vec<Vertex>
         .enumerate()
         .map(|(idx, &offset)| {
             let mut color;
-            if (idx > SIZE * SIZE + SIZE)
-                && (idx
-                    < (SIZE * SIZE * SIZE)
-                        - (SIZE * SIZE)
-                        - SIZE
-                        - 1)
+            if (idx > SIZE * SIZE + SIZE) && (idx < (SIZE * SIZE * SIZE) - (SIZE * SIZE) - SIZE - 1)
             {
                 let cur_state = cells[idx];
                 let neighbors = [
@@ -597,7 +702,7 @@ fn update_vbuf(
     (vertex_buffer, indices)
 }
 
-pub fn get_elapsed ( start: std::time::Instant ) -> f32 {
+pub fn get_elapsed(start: std::time::Instant) -> f32 {
     start.elapsed().as_secs() as f32 + start.elapsed().subsec_millis() as f32 / 1000.0
 }
 
