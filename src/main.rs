@@ -38,18 +38,24 @@ struct Vertex {
     color: (f32, f32, f32, f32),
 }
 
+struct Offset {
+    up: i32,
+    right: i32,
+    front: i32,
+}
+
 impl_vertex!(Vertex, position, color);
 
 #[rustfmt::skip]
-const CUBE_VERTICES: [Vertex; 8] = [
-    Vertex { position: (-0.5, -0.5, -0.5), color: (1.0, 1.0, 1.0, 1.0) },
-    Vertex { position: ( 0.5, -0.5, -0.5), color: (0.0, 1.0, 1.0, 1.0) },
-    Vertex { position: ( 0.5,  0.5, -0.5), color: (1.0, 0.0, 1.0, 1.0) },
-    Vertex { position: (-0.5,  0.5, -0.5), color: (1.0, 1.0, 0.0, 1.0) },
-    Vertex { position: (-0.5, -0.5,  0.5), color: (0.0, 0.0, 1.0, 1.0) },
-    Vertex { position: ( 0.5, -0.5,  0.5), color: (1.0, 0.0, 0.0, 1.0) },
-    Vertex { position: ( 0.5,  0.5,  0.5), color: (0.0, 1.0, 0.0, 1.0) },
-    Vertex { position: (-0.5,  0.5,  0.5), color: (0.0, 0.0, 0.0, 1.0) }
+const CUBE_VERTICES: [(Vertex, &[Offset]); 8] = [
+    (Vertex { position: (-0.5, -0.5, -0.5), color: (1.0, 0.0, 1.0, 1.0) }, &[Offset { right: -1, up: -1, front: -1},   Offset { right: -1, up: -1, front:  0},   Offset { right: -1, up:  0, front: -1},   Offset { right: -1, up:  0, front:  0},  Offset { right:  0, up: -1, front: -1},    Offset { right:  0, up: -1, front:  0},   Offset { right:  0, up:  0, front: -1},  Offset { right:  0, up:  0, front:  0}]),
+    (Vertex { position: ( 0.5, -0.5, -0.5), color: (1.0, 0.0, 1.0, 1.0) }, &[Offset { right:  0, up: -1, front: -1},   Offset { right:  0, up: -1, front:  0},   Offset { right:  0, up:  0, front: -1},   Offset { right:  0, up:  0, front:  0},  Offset { right:  1, up: -1, front: -1},    Offset { right:  1, up: -1, front:  0},   Offset { right:  1, up:  0, front: -1},  Offset { right:  1, up:  0, front:  0}]),
+    (Vertex { position: ( 0.5,  0.5, -0.5), color: (1.0, 0.0, 1.0, 1.0) }, &[Offset { right:  0, up:  0, front: -1},   Offset { right:  0, up:  0, front:  0},   Offset { right:  0, up:  1, front: -1},   Offset { right:  0, up:  1, front:  0},  Offset { right:  1, up:  0, front: -1},    Offset { right:  1, up:  0, front:  0},   Offset { right:  1, up:  1, front: -1},  Offset { right:  1, up:  1, front:  0}]),
+    (Vertex { position: (-0.5,  0.5, -0.5), color: (1.0, 0.0, 1.0, 1.0) }, &[Offset { right: -1, up:  0, front: -1},   Offset { right: -1, up:  0, front:  0},   Offset { right: -1, up:  1, front: -1},   Offset { right: -1, up:  1, front:  0},  Offset { right:  0, up:  0, front: -1},    Offset { right:  0, up:  0, front:  0},   Offset { right:  0, up:  1, front: -1},  Offset { right:  0, up:  1, front:  0}]),
+    (Vertex { position: (-0.5, -0.5,  0.5), color: (1.0, 0.0, 1.0, 1.0) }, &[Offset { right: -1, up: -1, front:  0},   Offset { right: -1, up: -1, front:  1},   Offset { right: -1, up:  0, front:  0},   Offset { right: -1, up:  0, front:  1},  Offset { right:  0, up: -1, front:  0},    Offset { right:  0, up: -1, front:  1},   Offset { right:  0, up:  0, front:  0},  Offset { right:  0, up:  0, front:  1}]),
+    (Vertex { position: ( 0.5, -0.5,  0.5), color: (1.0, 0.0, 1.0, 1.0) }, &[Offset { right:  0, up: -1, front:  0},   Offset { right:  0, up: -1, front:  1},   Offset { right:  0, up:  0, front:  0},   Offset { right:  0, up:  0, front:  1},  Offset { right:  1, up: -1, front:  0},    Offset { right:  1, up: -1, front:  1},   Offset { right:  1, up:  0, front:  0},  Offset { right:  1, up:  0, front:  1}]),
+    (Vertex { position: ( 0.5,  0.5,  0.5), color: (1.0, 0.0, 1.0, 1.0) }, &[Offset { right:  0, up:  0, front:  0},   Offset { right:  0, up:  0, front:  1},   Offset { right:  0, up:  1, front:  0},   Offset { right:  0, up:  1, front:  1},  Offset { right:  1, up:  0, front:  0},    Offset { right:  1, up:  0, front:  1},   Offset { right:  1, up:  1, front:  0},  Offset { right:  1, up:  1, front:  1}]),
+    (Vertex { position: (-0.5,  0.5,  0.5), color: (1.0, 0.0, 1.0, 1.0) }, &[Offset { right: -1, up:  0, front:  0},   Offset { right: -1, up:  0, front:  1},   Offset { right: -1, up:  1, front:  0},   Offset { right: -1, up:  1, front:  1},  Offset { right:  0, up:  0, front:  0},    Offset { right:  0, up:  0, front:  1},   Offset { right:  0, up:  1, front:  0},  Offset { right:  0, up:  1, front:  1}]),
 ];
 
 const CUBE_INDICES: [u32; 36] = [
@@ -321,7 +327,7 @@ fn main() {
         let uniform_buffer_subbuffer = {
             let uniform_data = vs::ty::Data {
                 world: model.into(),
-                view: view.into(),
+                view,
                 proj: projection.into(),
             };
 
@@ -541,47 +547,29 @@ fn generate_vertices(cells: &[u8], positions: &[(f32, f32, f32)]) -> Vec<Vertex>
         .iter()
         .enumerate()
         .map(|(idx, &offset)| {
-            let color;
-            if (idx > SIZE * SIZE + SIZE) && (idx < (SIZE * SIZE * SIZE) - (SIZE * SIZE) - SIZE - 1)
-            {
-                let neighbors = [
-                    cells[idx + (SIZE * SIZE) + SIZE + 1],
-                    cells[idx + (SIZE * SIZE) + SIZE],
-                    cells[idx + (SIZE * SIZE) + SIZE - 1],
-                    cells[idx + (SIZE * SIZE) + 1],
-                    cells[idx + (SIZE * SIZE)],
-                    cells[idx + (SIZE * SIZE) - 1],
-                    cells[idx + (SIZE * SIZE) - SIZE + 1],
-                    cells[idx + (SIZE * SIZE) - SIZE],
-                    cells[idx + (SIZE * SIZE) - SIZE - 1],
-                    cells[idx + SIZE + 1],
-                    cells[idx + SIZE],
-                    cells[idx + SIZE - 1],
-                    cells[idx + 1],
-                    cells[idx - 1],
-                    cells[idx - SIZE + 1],
-                    cells[idx - SIZE],
-                    cells[idx - SIZE - 1],
-                    cells[idx - (SIZE * SIZE) + SIZE + 1],
-                    cells[idx - (SIZE * SIZE) + SIZE],
-                    cells[idx - (SIZE * SIZE) + SIZE - 1],
-                    cells[idx - (SIZE * SIZE) + 1],
-                    cells[idx - (SIZE * SIZE)],
-                    cells[idx - (SIZE * SIZE) - 1],
-                    cells[idx - (SIZE * SIZE) - SIZE + 1],
-                    cells[idx - (SIZE * SIZE) - SIZE],
-                    cells[idx - (SIZE * SIZE) - SIZE - 1],
-                ];
-
-                let count: u8 = neighbors.iter().sum();
-                let value = 1.0 - ((count as f32) / 26.0);
-                color = (value, value, value, 1.0);
-            } else {
-                color = (1.0, 0.0, 0.0, 1.0);
-            }
-
             CUBE_VERTICES.iter().map(move |v| {
-                let pos = v.position;
+                let pos = v.0.position;
+
+                // determine color of vertex
+                let color = {
+                    let mut neighbor_count = 0;
+                    if cells[idx] > 0 {
+                        for offset in v.1.iter() {
+                            let idx_offset = offset.get_idx_offset(SIZE);
+                            // pray it doesn't overflow
+                            let new_idx = ((idx as i32) + idx_offset) as usize;
+                            if cells[new_idx] > 0 {
+                                neighbor_count += 1;
+                            }
+                        }
+                    }
+
+                    // todo: no negatives :p
+                    let value = 1.0 - (neighbor_count as f32 / 20.0);
+
+                    (value, value, value, 1.0)
+                };
+
                 Vertex {
                     position: (pos.0 + offset.0, pos.1 + offset.1, pos.2 + offset.2),
                     color,
@@ -631,6 +619,7 @@ fn generate_indices(cells: &[u8]) -> Vec<u32> {
                 .sum();
 
                 if neighbors < 26 {
+                    // not occluded, must be drawn
                     let start_idx = idx * CUBE_VERTICES.len();
                     Some(
                         CUBE_INDICES
@@ -698,6 +687,14 @@ fn update_vbuf(
 
 pub fn get_elapsed(start: std::time::Instant) -> f32 {
     start.elapsed().as_secs() as f32 + start.elapsed().subsec_millis() as f32 / 1000.0
+}
+
+impl Offset {
+    fn get_idx_offset(&self, size: usize) -> i32 {
+        let sz = size as i32;
+
+        self.up * (sz * sz) + self.front * sz + self.right
+    }
 }
 
 mod vs {
