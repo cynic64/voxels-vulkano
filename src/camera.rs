@@ -16,73 +16,81 @@ pub struct Camera {
 }
 
 impl Camera {
-    pub fn default ( ) -> Camera {
+    pub fn default() -> Camera {
         let position = vec3(0.0, 0.0, 0.0);
         let pitch = 0.0;
         let yaw = 0.0;
-        let front = normalize(
-            &vec3(
-                pitch.cos() * yaw.cos(),
-                pitch.sin(),
-                pitch.cos() * yaw.sin()
-            )
-        );
+        let front = normalize(&vec3(
+            pitch.cos() * yaw.cos(),
+            pitch.sin(),
+            pitch.cos() * yaw.sin(),
+        ));
         let right = vec3(0.0, 0.0, 0.0);
         let up = vec3(0.0, 1.0, 0.0);
         let world_up = vec3(0.0, 1.0, 0.0);
         let movement_speed = 20.0;
         let mouse_sens = 0.0004;
 
-        Camera { position, front, up, right, world_up, pitch, yaw, movement_speed, mouse_sens }
+        Camera {
+            position,
+            front,
+            up,
+            right,
+            world_up,
+            pitch,
+            yaw,
+            movement_speed,
+            mouse_sens,
+        }
     }
 
-    pub fn print_position ( &self) {
-        println!("Camera position: x: {}, y: {}, z: {}", self.position.x, self.position.y, self.position.z);
+    pub fn print_position(&self) {
+        println!(
+            "Camera position: x: {}, y: {}, z: {}",
+            self.position.x, self.position.y, self.position.z
+        );
     }
 
-    pub fn get_view_matrix ( &self ) ->  Mat4 {
-        look_at(
-            &self.position,
-            &(self.position + self.front),
-            &self.up
-        )
+    pub fn get_view_matrix(&self) -> Mat4 {
+        look_at(&self.position, &(self.position + self.front), &self.up)
     }
 
-    pub fn mouse_move ( &mut self, x: f32, y: f32 ) {
+    pub fn mouse_move(&mut self, x: f32, y: f32) {
         self.pitch += y * self.mouse_sens;
         self.yaw += x * self.mouse_sens;
         let halfpi = std::f32::consts::PI / 2.0;
 
-        if self.pitch > halfpi { self.pitch = halfpi; }
-        else if self.pitch < -halfpi { self.pitch = -halfpi; }
+        if self.pitch > halfpi {
+            self.pitch = halfpi;
+        } else if self.pitch < -halfpi {
+            self.pitch = -halfpi;
+        }
 
         self.update();
     }
 
-    pub fn move_forward ( &mut self, delta: f32 ) {
+    pub fn move_forward(&mut self, delta: f32) {
         self.position += self.front * self.movement_speed * delta;
     }
 
-    pub fn move_backward( &mut self, delta: f32 ) {
+    pub fn move_backward(&mut self, delta: f32) {
         self.position -= self.front * self.movement_speed * delta;
     }
 
-    pub fn move_left ( &mut self, delta: f32 ) {
+    pub fn move_left(&mut self, delta: f32) {
         self.position -= self.right * self.movement_speed * delta;
     }
 
-    pub fn move_right ( &mut self, delta: f32 ) {
+    pub fn move_right(&mut self, delta: f32) {
         self.position += self.right * self.movement_speed * delta;
     }
 
-    fn update ( &mut self ) {
-        self.front = normalize(
-            &vec3(
-                self.pitch.cos() * self.yaw.cos(),
-                self.pitch.sin(),
-                self.pitch.cos() * self.yaw.sin()
-            )
-        );
+    fn update(&mut self) {
+        self.front = normalize(&vec3(
+            self.pitch.cos() * self.yaw.cos(),
+            self.pitch.sin(),
+            self.pitch.cos() * self.yaw.sin(),
+        ));
 
         self.right = normalize(&glm::Vec3::cross(&self.front, &self.world_up));
     }
