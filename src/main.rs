@@ -76,7 +76,7 @@ fn main() {
         physical.ty()
     );
 
-    let mut events_loop = winit::EventsLoop::new();
+    let mut events_loop = EventsLoop::new();
     let surface = WindowBuilder::new()
         .build_vk_surface(&events_loop, instance.clone())
         .unwrap();
@@ -143,11 +143,7 @@ fn main() {
 
     // mvp
     let model = glm::scale(&glm::Mat4::identity(), &glm::vec3(1.0, 1.0, 1.0));
-    let mut view = glm::look_at(
-        &glm::vec3(1., 0., 1.),
-        &glm::vec3(0., 0., 0.),
-        &glm::vec3(0., 1., 0.),
-    );
+    let mut view: [[f32; 4]; 4];
     let projection = glm::perspective(
         // fov
         1.0,
@@ -216,7 +212,6 @@ fn main() {
     let mut recreate_swapchain = false;
 
     let mut previous_frame = Box::new(vulkano::sync::now(device.clone())) as Box<GpuFuture>;
-    let rotation_start = std::time::Instant::now();
 
     let mut dynamic_state = vulkano::command_buffer::DynamicState {
         line_width: None,
@@ -403,7 +398,7 @@ fn main() {
 
         let mut done = false;
         events_loop.poll_events(|event| {
-            if let winit::Event::WindowEvent { event, .. } = event {
+            if let Event::WindowEvent { event, .. } = event {
                 match event {
                     WindowEvent::CloseRequested => done = true,
                     WindowEvent::KeyboardInput {
@@ -546,10 +541,9 @@ fn generate_vertices(cells: &[u8], positions: &[(f32, f32, f32)]) -> Vec<Vertex>
         .iter()
         .enumerate()
         .map(|(idx, &offset)| {
-            let mut color;
+            let color;
             if (idx > SIZE * SIZE + SIZE) && (idx < (SIZE * SIZE * SIZE) - (SIZE * SIZE) - SIZE - 1)
             {
-                let cur_state = cells[idx];
                 let neighbors = [
                     cells[idx + (SIZE * SIZE) + SIZE + 1],
                     cells[idx + (SIZE * SIZE) + SIZE],
