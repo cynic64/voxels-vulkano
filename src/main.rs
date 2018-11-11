@@ -37,14 +37,13 @@ struct Vertex {
     position: (f32, f32, f32),
     color: (f32, f32, f32, f32),
 }
+impl_vertex!(Vertex, position, color);
 
 struct Offset {
     up: i32,
     right: i32,
     front: i32,
 }
-
-impl_vertex!(Vertex, position, color);
 
 #[rustfmt::skip]
 const CUBE_VERTICES: [(Vertex, &[Offset]); 8] = [
@@ -62,6 +61,20 @@ const CUBE_INDICES: [usize; 36] = [
     0, 1, 3, 3, 1, 2, 1, 5, 2, 2, 5, 6, 5, 4, 6, 6, 4, 7, 4, 0, 7, 7, 0, 3, 3, 2, 7, 7, 2, 6, 4, 5,
     0, 0, 5, 1,
 ];
+
+const CUBE_FACES: [Face; 6] = [
+    Face { indices: [0, 1, 3, 3, 1, 2], facing: Offset { right: 1, up: 0, front: 0 } },
+    Face { indices: [1, 5, 2, 2, 5, 6], facing: Offset { right: 1, up: 0, front: 0 } },
+    Face { indices: [5, 4, 6, 6, 4, 7], facing: Offset { right: 1, up: 0, front: 0 } },
+    Face { indices: [4, 0, 7, 7, 0, 3], facing: Offset { right: 1, up: 0, front: 0 } },
+    Face { indices: [3, 2, 7, 7, 2, 6], facing: Offset { right: 1, up: 0, front: 0 } },
+    Face { indices: [4, 5, 0, 0, 5, 1], facing: Offset { right: 1, up: 0, front: 0 } },
+];
+
+struct Face {
+    indices: [usize; 6],
+    facing: Offset,
+}
 
 fn main() {
     let positions = generate_positions();
@@ -549,13 +562,15 @@ fn generate_vertices(cells: &[u8], positions: &[(f32, f32, f32)]) -> Vec<Vertex>
         .iter()
         .enumerate()
         .filter_map(|(idx, &offset)| {
-            if cells[idx] > 0 {
-                if ca::count_neighbors(cells, idx, SIZE) < 26 {
-                    Some(CUBE_INDICES.iter().map(move |&v_idx| {
+            // make sure cell is alive and not totally obscured
+            if cells[idx] > 0 && ca::count_neighbors(cells, idx, SIZE) < 26 {
+                // iterate over each face
+                Some(CUBE_FACES.iter().map(move |face| {
+                    face.indices.iter().map(move |&v_idx| {
                         let v = CUBE_VERTICES[v_idx];
                         let pos = v.0.position;
 
-                        // determine color of vertex
+                        // determine ao of vertex
                         let color = {
                             let mut neighbor_count = 0;
                             for offset in v.1.iter() {
@@ -577,14 +592,13 @@ fn generate_vertices(cells: &[u8], positions: &[(f32, f32, f32)]) -> Vec<Vertex>
                             position: (pos.0 + offset.0, pos.1 + offset.1, pos.2 + offset.2),
                             color,
                         }
-                    }))
-                } else {
-                    None
-                }
+                    })
+                }))
             } else {
                 None
             }
         })
+        .flatten()
         .flatten()
         .collect()
 }
