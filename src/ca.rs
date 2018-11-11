@@ -60,7 +60,7 @@ impl CellA {
                             - 1)
                 {
                     let cur_state = self.cells[idx];
-                    let count = self.count_neighbors(idx);
+                    let count = count_neighbors(&self.cells, idx, self.width);
 
                     if cur_state > 0 {
                         if count >= self.min_surv && count <= self.max_surv {
@@ -86,37 +86,37 @@ impl CellA {
 
         self.cells = new_cells;
     }
+}
 
-    pub fn count_neighbors(&self, idx: usize) -> u8 {
-        let neighbors = [
-            self.cells[idx + (self.width * self.height) + self.width + 1],
-            self.cells[idx + (self.width * self.height) + self.width],
-            self.cells[idx + (self.width * self.height) + self.width - 1],
-            self.cells[idx + (self.width * self.height) + 1],
-            self.cells[idx + (self.width * self.height)],
-            self.cells[idx + (self.width * self.height) - 1],
-            self.cells[idx + (self.width * self.height) - self.width + 1],
-            self.cells[idx + (self.width * self.height) - self.width],
-            self.cells[idx + (self.width * self.height) - self.width - 1],
-            self.cells[idx + self.width + 1],
-            self.cells[idx + self.width],
-            self.cells[idx + self.width - 1],
-            self.cells[idx + 1],
-            self.cells[idx - 1],
-            self.cells[idx - self.width + 1],
-            self.cells[idx - self.width],
-            self.cells[idx - self.width - 1],
-            self.cells[idx - (self.width * self.height) + self.width + 1],
-            self.cells[idx - (self.width * self.height) + self.width],
-            self.cells[idx - (self.width * self.height) + self.width - 1],
-            self.cells[idx - (self.width * self.height) + 1],
-            self.cells[idx - (self.width * self.height)],
-            self.cells[idx - (self.width * self.height) - 1],
-            self.cells[idx - (self.width * self.height) - self.width + 1],
-            self.cells[idx - (self.width * self.height) - self.width],
-            self.cells[idx - (self.width * self.height) - self.width - 1],
-        ];
+pub fn count_neighbors(cells: &[u8], idx: usize, size: usize) -> u8 {
+    let neighbors = [
+        cells[idx + (size * size) + size + 1],
+        cells[idx + (size * size) + size],
+        cells[idx + (size * size) + size - 1],
+        cells[idx + (size * size) + 1],
+        cells[idx + (size * size)],
+        cells[idx + (size * size) - 1],
+        cells[idx + (size * size) - size + 1],
+        cells[idx + (size * size) - size],
+        cells[idx + (size * size) - size - 1],
+        cells[idx + size + 1],
+        cells[idx + size],
+        cells[idx + size - 1],
+        cells[idx + 1],
+        cells[idx - 1],
+        cells[idx - size + 1],
+        cells[idx - size],
+        cells[idx - size - 1],
+        cells[idx - (size * size) + size + 1],
+        cells[idx - (size * size) + size],
+        cells[idx - (size * size) + size - 1],
+        cells[idx - (size * size) + 1],
+        cells[idx - (size * size)],
+        cells[idx - (size * size) - 1],
+        cells[idx - (size * size) - size + 1],
+        cells[idx - (size * size) - size],
+        cells[idx - (size * size) - size - 1],
+    ];
 
-        neighbors.iter().sum()
-    }
+    neighbors.iter().sum()
 }
