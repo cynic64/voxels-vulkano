@@ -60,36 +60,7 @@ impl CellA {
                             - 1)
                 {
                     let cur_state = self.cells[idx];
-                    let neighbors = [
-                        self.cells[idx + (self.width * self.height) + self.width + 1],
-                        self.cells[idx + (self.width * self.height) + self.width],
-                        self.cells[idx + (self.width * self.height) + self.width - 1],
-                        self.cells[idx + (self.width * self.height) + 1],
-                        self.cells[idx + (self.width * self.height)],
-                        self.cells[idx + (self.width * self.height) - 1],
-                        self.cells[idx + (self.width * self.height) - self.width + 1],
-                        self.cells[idx + (self.width * self.height) - self.width],
-                        self.cells[idx + (self.width * self.height) - self.width - 1],
-                        self.cells[idx + self.width + 1],
-                        self.cells[idx + self.width],
-                        self.cells[idx + self.width - 1],
-                        self.cells[idx + 1],
-                        self.cells[idx - 1],
-                        self.cells[idx - self.width + 1],
-                        self.cells[idx - self.width],
-                        self.cells[idx - self.width - 1],
-                        self.cells[idx - (self.width * self.height) + self.width + 1],
-                        self.cells[idx - (self.width * self.height) + self.width],
-                        self.cells[idx - (self.width * self.height) + self.width - 1],
-                        self.cells[idx - (self.width * self.height) + 1],
-                        self.cells[idx - (self.width * self.height)],
-                        self.cells[idx - (self.width * self.height) - 1],
-                        self.cells[idx - (self.width * self.height) - self.width + 1],
-                        self.cells[idx - (self.width * self.height) - self.width],
-                        self.cells[idx - (self.width * self.height) - self.width - 1],
-                    ];
-
-                    let count: u8 = neighbors.iter().sum();
+                    let count = self.count_neighbors(idx);
 
                     if cur_state > 0 {
                         if count >= self.min_surv && count <= self.max_surv {
@@ -114,5 +85,38 @@ impl CellA {
             .collect();
 
         self.cells = new_cells;
+    }
+
+    pub fn count_neighbors(&self, idx: usize) -> u8 {
+        let neighbors = [
+            self.cells[idx + (self.width * self.height) + self.width + 1],
+            self.cells[idx + (self.width * self.height) + self.width],
+            self.cells[idx + (self.width * self.height) + self.width - 1],
+            self.cells[idx + (self.width * self.height) + 1],
+            self.cells[idx + (self.width * self.height)],
+            self.cells[idx + (self.width * self.height) - 1],
+            self.cells[idx + (self.width * self.height) - self.width + 1],
+            self.cells[idx + (self.width * self.height) - self.width],
+            self.cells[idx + (self.width * self.height) - self.width - 1],
+            self.cells[idx + self.width + 1],
+            self.cells[idx + self.width],
+            self.cells[idx + self.width - 1],
+            self.cells[idx + 1],
+            self.cells[idx - 1],
+            self.cells[idx - self.width + 1],
+            self.cells[idx - self.width],
+            self.cells[idx - self.width - 1],
+            self.cells[idx - (self.width * self.height) + self.width + 1],
+            self.cells[idx - (self.width * self.height) + self.width],
+            self.cells[idx - (self.width * self.height) + self.width - 1],
+            self.cells[idx - (self.width * self.height) + 1],
+            self.cells[idx - (self.width * self.height)],
+            self.cells[idx - (self.width * self.height) - 1],
+            self.cells[idx - (self.width * self.height) - self.width + 1],
+            self.cells[idx - (self.width * self.height) - self.width],
+            self.cells[idx - (self.width * self.height) - self.width - 1],
+        ];
+
+        neighbors.iter().sum()
     }
 }
