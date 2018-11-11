@@ -30,7 +30,7 @@ use vulkano_win::VkSurfaceBuild;
 
 use std::sync::Arc;
 
-const SIZE: usize = 64;
+const SIZE: usize = 128;
 
 #[derive(Copy, Clone, Debug)]
 struct Vertex {
@@ -251,7 +251,6 @@ fn main() {
         let delta = get_elapsed(last_frame);
         last_frame = std::time::Instant::now();
 
-        frame_count += 1;
         previous_frame.cleanup_finished();
 
         if recreate_swapchain {
@@ -548,15 +547,19 @@ fn main() {
         if done {
             break;
         }
+
+        frame_count += 1;
     }
 
     let elapsed = get_elapsed(first_frame);
     let fps = (frame_count as f32) / elapsed;
     println!("FPS: {}", fps);
+    println!("last delta: {}", get_elapsed(last_frame));
 }
 
 fn generate_vertices(cells: &[u8], positions: &[(f32, f32, f32)]) -> Vec<Vertex> {
     // prepare for the iterator chain from hell
+    // plz clean this up
     positions
         .iter()
         .enumerate()
