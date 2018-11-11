@@ -569,7 +569,7 @@ fn generate_vertices(cells: &[u8], positions: &[(f32, f32, f32)]) -> Vec<Vertex>
     positions
         .iter()
         .enumerate()
-        .filter_map(|(idx, &offset)| generate_verts_for_cube(cells, idx, offset))
+        .map(|(idx, &offset)| generate_verts_for_cube(cells, idx, offset))
         .flatten()
         .collect()
 }
@@ -578,37 +578,34 @@ fn generate_verts_for_cube(
     cells: &[u8],
     idx: usize,
     offset: (f32, f32, f32),
-) -> Option<Vec<Vertex>> {
+) -> Vec<Vertex> {
     // make sure cell is alive and not totally obscured
     if cells[idx] > 0 && ca::count_neighbors(cells, idx, SIZE) < 26 {
-        Some(
-            CUBE_FACES
-                .iter()
-                .filter_map(move |face| {
-                    // iterate over each face
-                    if face.is_visible(cells, idx, SIZE) {
-                        Some(face.indices.iter().map(move |&v_idx| {
-                            let corner = &CUBE_CORNERS[v_idx];
-                            let pos = corner.position;
-                            let offsets = &corner.neighbors;
+        CUBE_FACES
+            .iter()
+            .filter_map(move |face| {
+                if face.is_visible(cells, idx, SIZE) {
+                    Some(face.indices.iter().map(move |&v_idx| {
+                        let corner = &CUBE_CORNERS[v_idx];
+                        let pos = corner.position;
+                        let offsets = &corner.neighbors;
 
-                            // determine ao of vertex
-                            let color = get_color_of_vertex(cells, idx, offsets);
+                        // determine ao of vertex
+                        let color = get_color_of_vertex(cells, idx, offsets);
 
-                            Vertex {
-                                position: (pos.0 + offset.0, pos.1 + offset.1, pos.2 + offset.2),
-                                color,
-                            }
-                        }))
-                    } else {
-                        None
-                    }
-                })
-                .flatten()
-                .collect(),
-        )
+                        Vertex {
+                            position: (pos.0 + offset.0, pos.1 + offset.1, pos.2 + offset.2),
+                            color,
+                        }
+                    }))
+                } else {
+                    None
+                }
+            })
+            .flatten()
+            .collect()
     } else {
-        None
+        Vec::new()
     }
 }
 
