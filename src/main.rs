@@ -57,11 +57,6 @@ const CUBE_VERTICES: [(Vertex, &[Offset]); 8] = [
     (Vertex { position: (-0.5,  0.5,  0.5), color: (1.0, 0.0, 1.0, 1.0) }, &[Offset { right: -1, up:  0, front:  0},   Offset { right: -1, up:  0, front:  1},   Offset { right: -1, up:  1, front:  0},   Offset { right: -1, up:  1, front:  1},  Offset { right:  0, up:  0, front:  0},    Offset { right:  0, up:  0, front:  1},   Offset { right:  0, up:  1, front:  0},  Offset { right:  0, up:  1, front:  1}]),
 ];
 
-const CUBE_INDICES: [usize; 36] = [
-    0, 1, 3, 3, 1, 2, 1, 5, 2, 2, 5, 6, 5, 4, 6, 6, 4, 7, 4, 0, 7, 7, 0, 3, 3, 2, 7, 7, 2, 6, 4, 5,
-    0, 0, 5, 1,
-];
-
 const CUBE_FACES: [Face; 6] = [
     Face { indices: [0, 1, 3, 3, 1, 2], facing: Offset { right: 1, up: 0, front: 0 } },
     Face { indices: [1, 5, 2, 2, 5, 6], facing: Offset { right: 1, up: 0, front: 0 } },
@@ -558,6 +553,7 @@ fn main() {
 }
 
 fn generate_vertices(cells: &[u8], positions: &[(f32, f32, f32)]) -> Vec<Vertex> {
+    // prepare for the iterator chain from hell
     positions
         .iter()
         .enumerate()
@@ -565,34 +561,39 @@ fn generate_vertices(cells: &[u8], positions: &[(f32, f32, f32)]) -> Vec<Vertex>
             // make sure cell is alive and not totally obscured
             if cells[idx] > 0 && ca::count_neighbors(cells, idx, SIZE) < 26 {
                 // iterate over each face
-                Some(CUBE_FACES.iter().map(move |face| {
-                    face.indices.iter().map(move |&v_idx| {
-                        let v = CUBE_VERTICES[v_idx];
-                        let pos = v.0.position;
+                Some(CUBE_FACES.iter().filter_map(move |face| {
+                    let face_neighbor_idx = ((idx as i32) + face.facing.get_idx_offset(SIZE)) as usize;
+                    if cells[face_neighbor_idx] == 0 {
+                        Some(face.indices.iter().map(move |&v_idx| {
+                            let v = CUBE_VERTICES[v_idx];
+                            let pos = v.0.position;
 
-                        // determine ao of vertex
-                        let color = {
-                            let mut neighbor_count = 0;
-                            for offset in v.1.iter() {
-                                let idx_offset = offset.get_idx_offset(SIZE);
-                                // pray it doesn't overflow
-                                let new_idx = ((idx as i32) + idx_offset) as usize;
-                                if cells[new_idx] > 0 {
-                                    neighbor_count += 1;
+                            // determine ao of vertex
+                            let color = {
+                                let mut neighbor_count = 0;
+                                for offset in v.1.iter() {
+                                    let idx_offset = offset.get_idx_offset(SIZE);
+                                    // pray it doesn't overflow
+                                    let new_idx = ((idx as i32) + idx_offset) as usize;
+                                    if cells[new_idx] > 0 {
+                                        neighbor_count += 1;
+                                    }
                                 }
+
+                                // todo: no negatives :p
+                                let value = 1.0 - (neighbor_count as f32 / 20.0);
+
+                                (value, value, value, 1.0)
+                            };
+
+                            Vertex {
+                                position: (pos.0 + offset.0, pos.1 + offset.1, pos.2 + offset.2),
+                                color,
                             }
-
-                            // todo: no negatives :p
-                            let value = 1.0 - (neighbor_count as f32 / 20.0);
-
-                            (value, value, value, 1.0)
-                        };
-
-                        Vertex {
-                            position: (pos.0 + offset.0, pos.1 + offset.1, pos.2 + offset.2),
-                            color,
-                        }
-                    })
+                        }))
+                    } else {
+                        None
+                    }
                 }))
             } else {
                 None
