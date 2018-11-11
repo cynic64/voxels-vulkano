@@ -56,11 +56,11 @@ fn generate_vertices(cells: &[u8], positions: &[(f32, f32, f32)]) -> Vec<Vertex>
 
 fn generate_verts_for_cube(cells: &[u8], idx: usize, offset: (f32, f32, f32)) -> Vec<Vertex> {
     // make sure cell is alive and not totally obscured
-    if cells[idx] > 0 && ca::count_neighbors(cells, idx, SIZE) < 26 {
+    if cells[idx] > 0 && ca::count_neighbors(cells, idx) < 26 {
         CUBE_FACES
             .iter()
             .filter_map(move |face| {
-                if face.is_visible(cells, idx, SIZE) {
+                if face.is_visible(cells, idx) {
                     Some(face.indices.iter().map(move |&v_idx| {
                         let corner = &CUBE_CORNERS[v_idx];
                         let pos = corner.position;
@@ -89,7 +89,7 @@ fn get_color_of_vertex(cells: &[u8], base_idx: usize, offsets: &[Offset]) -> (f3
     let mut neighbor_count = 0;
 
     for offset in offsets.iter() {
-        let idx_offset = offset.get_idx_offset(SIZE);
+        let idx_offset = offset.get_idx_offset();
         // pray it doesn't overflow in the usize -> i32 conversion
         // would happen with size > 1200, which is pretty extreme but possible.
         // usize overflows at size > 1500, which isn't so great either.
@@ -136,16 +136,16 @@ pub fn update_vbuf(
 }
 
 impl Offset {
-    fn get_idx_offset(&self, size: usize) -> i32 {
-        let sz = size as i32;
+    fn get_idx_offset(&self) -> i32 {
+        let sz = SIZE as i32;
 
         self.up * (sz * sz) + self.front * sz + self.right
     }
 }
 
 impl Face {
-    fn is_visible(&self, cells: &[u8], idx: usize, size: usize) -> bool {
-        let neighbor_idx = ((idx as i32) + self.facing.get_idx_offset(size)) as usize;
+    fn is_visible(&self, cells: &[u8], idx: usize) -> bool {
+        let neighbor_idx = ((idx as i32) + self.facing.get_idx_offset()) as usize;
 
         cells[neighbor_idx] == 0
     }

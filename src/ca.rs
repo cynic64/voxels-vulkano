@@ -54,7 +54,7 @@ impl CellA {
                             - 1)
                 {
                     let cur_state = self.cells[idx];
-                    let count = count_neighbors(&self.cells, idx, self.size);
+                    let count = count_neighbors(&self.cells, idx);
 
                     if cur_state > 0 {
                         if count >= self.min_surv && count <= self.max_surv {
@@ -82,7 +82,9 @@ impl CellA {
     }
 }
 
-pub fn count_neighbors(cells: &[u8], idx: usize, size: usize) -> u8 {
+pub fn count_neighbors(cells: &[u8], idx: usize) -> u8 {
+    use super::SIZE as size;
+
     let neighbors = [
         cells[idx + (size * size) + size + 1],
         cells[idx + (size * size) + size],
