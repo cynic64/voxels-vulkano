@@ -564,35 +564,35 @@ fn generate_vertices(cells: &[u8], positions: &[(f32, f32, f32)]) -> Vec<Vertex>
     positions
         .iter()
         .enumerate()
-        .filter_map(|(idx, &offset)| {
-            // make sure cell is alive and not totally obscured
-            if cells[idx] > 0 && ca::count_neighbors(cells, idx, SIZE) < 26 {
-                // iterate over each face
-                Some(CUBE_FACES.iter().filter_map(move |face| {
+        .filter_map(|(idx, &offset)| generate_verts_for_cube(cells, idx, offset))
+        .flatten()
+        .collect()
+}
+
+fn generate_verts_for_cube(
+    cells: &[u8],
+    idx: usize,
+    offset: (f32, f32, f32),
+) -> Option<Vec<Vertex>> {
+    // make sure cell is alive and not totally obscured
+    if cells[idx] > 0 && ca::count_neighbors(cells, idx, SIZE) < 26 {
+        Some(
+            CUBE_FACES
+                .iter()
+                .filter_map(move |face| {
+                    // iterate over each face
                     let face_neighbor_idx =
                         ((idx as i32) + face.facing.get_idx_offset(SIZE)) as usize;
+
                     if cells[face_neighbor_idx] == 0 {
                         Some(face.indices.iter().map(move |&v_idx| {
-                            let v = CUBE_VERTICES[v_idx];
-                            let pos = v.0.position;
+                            let vertex_and_offsets = CUBE_VERTICES[v_idx];
+                            let vertex = vertex_and_offsets.0;
+                            let offsets = vertex_and_offsets.1;
+                            let pos = vertex.position;
 
                             // determine ao of vertex
-                            let color = {
-                                let mut neighbor_count = 0;
-                                for offset in v.1.iter() {
-                                    let idx_offset = offset.get_idx_offset(SIZE);
-                                    // pray it doesn't overflow
-                                    let new_idx = ((idx as i32) + idx_offset) as usize;
-                                    if cells[new_idx] > 0 {
-                                        neighbor_count += 1;
-                                    }
-                                }
-
-                                // todo: no negatives :p
-                                let value = 1.0 - (neighbor_count as f32 / 20.0);
-
-                                (value, value, value, 1.0)
-                            };
+                            let color = get_color_of_vertex(cells, idx, offsets);
 
                             Vertex {
                                 position: (pos.0 + offset.0, pos.1 + offset.1, pos.2 + offset.2),
@@ -602,14 +602,31 @@ fn generate_vertices(cells: &[u8], positions: &[(f32, f32, f32)]) -> Vec<Vertex>
                     } else {
                         None
                     }
-                }))
-            } else {
-                None
-            }
-        })
-        .flatten()
-        .flatten()
-        .collect()
+                })
+                .flatten()
+                .collect(),
+        )
+    } else {
+        None
+    }
+}
+
+fn get_color_of_vertex(cells: &[u8], base_idx: usize, offsets: &[Offset]) -> (f32, f32, f32, f32) {
+    let mut neighbor_count = 0;
+
+    for offset in offsets.iter() {
+        let idx_offset = offset.get_idx_offset(SIZE);
+        // pray it doesn't overflow
+        let new_idx = ((base_idx as i32) + idx_offset) as usize;
+        if cells[new_idx] > 0 {
+            neighbor_count += 1;
+        }
+    }
+
+    // todo: no negatives :p
+    let value = 1.0 - (neighbor_count as f32 / 20.0);
+
+    (value, value, value, 1.0)
 }
 
 fn generate_positions() -> Vec<(f32, f32, f32)> {
