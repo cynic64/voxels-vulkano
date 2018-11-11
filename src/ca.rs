@@ -4,9 +4,7 @@ use self::rayon::prelude::*;
 
 pub struct CellA {
     pub cells: Vec<u8>,
-    width: usize,
-    height: usize,
-    length: usize,
+    size: usize,
     min_surv: u8,
     max_surv: u8,
     min_birth: u8,
@@ -16,22 +14,18 @@ pub struct CellA {
 
 impl CellA {
     pub fn new(
-        width: usize,
-        height: usize,
-        length: usize,
+        size: usize,
         min_surv: u8,
         max_surv: u8,
         min_birth: u8,
         max_birth: u8,
     ) -> Self {
-        let cells = vec![0; width * height * length];
+        let cells = vec![0; size * size * size];
         let max_age = 1;
 
         Self {
             cells,
-            width,
-            height,
-            length,
+            size,
             min_surv,
             max_surv,
             min_birth,
@@ -41,7 +35,7 @@ impl CellA {
     }
 
     pub fn randomize(&mut self) {
-        let cells = (0..self.width * self.height * self.length)
+        let cells = (0..self.size * self.size * self.size)
             .map(|_| if rand::random() { 1 } else { 0 })
             .collect();
 
@@ -49,18 +43,18 @@ impl CellA {
     }
 
     pub fn next_gen(&mut self) {
-        let new_cells = (0..self.width * self.height * self.length)
+        let new_cells = (0..self.size * self.size * self.size)
             .into_par_iter()
             .map(|idx| {
-                if (idx > self.width * self.height + self.width)
+                if (idx > self.size * self.size + self.size)
                     && (idx
-                        < (self.width * self.height * self.length)
-                            - (self.width * self.height)
-                            - self.width
+                        < (self.size * self.size * self.size)
+                            - (self.size * self.size)
+                            - self.size
                             - 1)
                 {
                     let cur_state = self.cells[idx];
-                    let count = count_neighbors(&self.cells, idx, self.width);
+                    let count = count_neighbors(&self.cells, idx);
 
                     if cur_state > 0 {
                         if count >= self.min_surv && count <= self.max_surv {
@@ -88,7 +82,9 @@ impl CellA {
     }
 }
 
-pub fn count_neighbors(cells: &[u8], idx: usize, size: usize) -> u8 {
+pub fn count_neighbors(cells: &[u8], idx: usize) -> u8 {
+    use super::SIZE as size;
+
     let neighbors = [
         cells[idx + (size * size) + size + 1],
         cells[idx + (size * size) + size],

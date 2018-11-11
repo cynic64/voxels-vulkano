@@ -125,10 +125,10 @@ fn main() {
     let model = glm::scale(&glm::Mat4::identity(), &glm::vec3(1.0, 1.0, 1.0));
     let mut view: [[f32; 4]; 4];
     let mut projection = glm::perspective(
-        // fov
-        1.0,
         // aspect ratio
         16. / 9.,
+        // fov
+        1.0,
         // near
         0.1,
         // far
@@ -528,7 +528,7 @@ pub fn get_elapsed(start: std::time::Instant) -> f32 {
 }
 
 fn setup_ca() -> ca::CellA {
-    let mut ca = ca::CellA::new(SIZE, SIZE, SIZE, 13, 26, 14, 26);
+    let mut ca = ca::CellA::new(SIZE, 13, 26, 14, 26);
     ca.randomize();
     for _ in 0..20 {
         ca.next_gen()
