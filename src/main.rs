@@ -24,6 +24,9 @@ use winit::{
 // my stuff
 mod ca;
 mod camera;
+mod mesher;
+
+use self::mesher::Vertex;
 
 use vulkano::sync::GpuFuture;
 use vulkano_win::VkSurfaceBuild;
@@ -32,11 +35,6 @@ use std::sync::Arc;
 
 const SIZE: usize = 128;
 
-#[derive(Copy, Clone, Debug)]
-struct Vertex {
-    position: (f32, f32, f32),
-    color: (f32, f32, f32, f32),
-}
 impl_vertex!(Vertex, position, color);
 
 #[rustfmt::skip]
