@@ -39,22 +39,16 @@ struct Vertex {
 }
 impl_vertex!(Vertex, position, color);
 
-struct Offset {
-    up: i32,
-    right: i32,
-    front: i32,
-}
-
 #[rustfmt::skip]
-const CUBE_VERTICES: [(Vertex, &[Offset]); 8] = [
-    (Vertex { position: (-0.5, -0.5, -0.5), color: (1.0, 0.0, 1.0, 1.0) }, &[Offset { right: -1, up: -1, front: -1},   Offset { right: -1, up: -1, front:  0},   Offset { right: -1, up:  0, front: -1},   Offset { right: -1, up:  0, front:  0},  Offset { right:  0, up: -1, front: -1},    Offset { right:  0, up: -1, front:  0},   Offset { right:  0, up:  0, front: -1},  Offset { right:  0, up:  0, front:  0}]),
-    (Vertex { position: ( 0.5, -0.5, -0.5), color: (1.0, 0.0, 1.0, 1.0) }, &[Offset { right:  0, up: -1, front: -1},   Offset { right:  0, up: -1, front:  0},   Offset { right:  0, up:  0, front: -1},   Offset { right:  0, up:  0, front:  0},  Offset { right:  1, up: -1, front: -1},    Offset { right:  1, up: -1, front:  0},   Offset { right:  1, up:  0, front: -1},  Offset { right:  1, up:  0, front:  0}]),
-    (Vertex { position: ( 0.5,  0.5, -0.5), color: (1.0, 0.0, 1.0, 1.0) }, &[Offset { right:  0, up:  0, front: -1},   Offset { right:  0, up:  0, front:  0},   Offset { right:  0, up:  1, front: -1},   Offset { right:  0, up:  1, front:  0},  Offset { right:  1, up:  0, front: -1},    Offset { right:  1, up:  0, front:  0},   Offset { right:  1, up:  1, front: -1},  Offset { right:  1, up:  1, front:  0}]),
-    (Vertex { position: (-0.5,  0.5, -0.5), color: (1.0, 0.0, 1.0, 1.0) }, &[Offset { right: -1, up:  0, front: -1},   Offset { right: -1, up:  0, front:  0},   Offset { right: -1, up:  1, front: -1},   Offset { right: -1, up:  1, front:  0},  Offset { right:  0, up:  0, front: -1},    Offset { right:  0, up:  0, front:  0},   Offset { right:  0, up:  1, front: -1},  Offset { right:  0, up:  1, front:  0}]),
-    (Vertex { position: (-0.5, -0.5,  0.5), color: (1.0, 0.0, 1.0, 1.0) }, &[Offset { right: -1, up: -1, front:  0},   Offset { right: -1, up: -1, front:  1},   Offset { right: -1, up:  0, front:  0},   Offset { right: -1, up:  0, front:  1},  Offset { right:  0, up: -1, front:  0},    Offset { right:  0, up: -1, front:  1},   Offset { right:  0, up:  0, front:  0},  Offset { right:  0, up:  0, front:  1}]),
-    (Vertex { position: ( 0.5, -0.5,  0.5), color: (1.0, 0.0, 1.0, 1.0) }, &[Offset { right:  0, up: -1, front:  0},   Offset { right:  0, up: -1, front:  1},   Offset { right:  0, up:  0, front:  0},   Offset { right:  0, up:  0, front:  1},  Offset { right:  1, up: -1, front:  0},    Offset { right:  1, up: -1, front:  1},   Offset { right:  1, up:  0, front:  0},  Offset { right:  1, up:  0, front:  1}]),
-    (Vertex { position: ( 0.5,  0.5,  0.5), color: (1.0, 0.0, 1.0, 1.0) }, &[Offset { right:  0, up:  0, front:  0},   Offset { right:  0, up:  0, front:  1},   Offset { right:  0, up:  1, front:  0},   Offset { right:  0, up:  1, front:  1},  Offset { right:  1, up:  0, front:  0},    Offset { right:  1, up:  0, front:  1},   Offset { right:  1, up:  1, front:  0},  Offset { right:  1, up:  1, front:  1}]),
-    (Vertex { position: (-0.5,  0.5,  0.5), color: (1.0, 0.0, 1.0, 1.0) }, &[Offset { right: -1, up:  0, front:  0},   Offset { right: -1, up:  0, front:  1},   Offset { right: -1, up:  1, front:  0},   Offset { right: -1, up:  1, front:  1},  Offset { right:  0, up:  0, front:  0},    Offset { right:  0, up:  0, front:  1},   Offset { right:  0, up:  1, front:  0},  Offset { right:  0, up:  1, front:  1}]),
+const CUBE_CORNERS: [CubeCorner; 8] = [
+    CubeCorner { position: (-0.5, -0.5, -0.5), neighbors: [Offset { right: -1, up: -1, front: -1},   Offset { right: -1, up: -1, front:  0},   Offset { right: -1, up:  0, front: -1},   Offset { right: -1, up:  0, front:  0},  Offset { right:  0, up: -1, front: -1},    Offset { right:  0, up: -1, front:  0},   Offset { right:  0, up:  0, front: -1},  Offset { right:  0, up:  0, front:  0} ] },
+    CubeCorner { position: ( 0.5, -0.5, -0.5), neighbors: [Offset { right:  0, up: -1, front: -1},   Offset { right:  0, up: -1, front:  0},   Offset { right:  0, up:  0, front: -1},   Offset { right:  0, up:  0, front:  0},  Offset { right:  1, up: -1, front: -1},    Offset { right:  1, up: -1, front:  0},   Offset { right:  1, up:  0, front: -1},  Offset { right:  1, up:  0, front:  0} ] },
+    CubeCorner { position: ( 0.5,  0.5, -0.5), neighbors: [Offset { right:  0, up:  0, front: -1},   Offset { right:  0, up:  0, front:  0},   Offset { right:  0, up:  1, front: -1},   Offset { right:  0, up:  1, front:  0},  Offset { right:  1, up:  0, front: -1},    Offset { right:  1, up:  0, front:  0},   Offset { right:  1, up:  1, front: -1},  Offset { right:  1, up:  1, front:  0} ] },
+    CubeCorner { position: (-0.5,  0.5, -0.5), neighbors: [Offset { right: -1, up:  0, front: -1},   Offset { right: -1, up:  0, front:  0},   Offset { right: -1, up:  1, front: -1},   Offset { right: -1, up:  1, front:  0},  Offset { right:  0, up:  0, front: -1},    Offset { right:  0, up:  0, front:  0},   Offset { right:  0, up:  1, front: -1},  Offset { right:  0, up:  1, front:  0} ] },
+    CubeCorner { position: (-0.5, -0.5,  0.5), neighbors: [Offset { right: -1, up: -1, front:  0},   Offset { right: -1, up: -1, front:  1},   Offset { right: -1, up:  0, front:  0},   Offset { right: -1, up:  0, front:  1},  Offset { right:  0, up: -1, front:  0},    Offset { right:  0, up: -1, front:  1},   Offset { right:  0, up:  0, front:  0},  Offset { right:  0, up:  0, front:  1} ] },
+    CubeCorner { position: ( 0.5, -0.5,  0.5), neighbors: [Offset { right:  0, up: -1, front:  0},   Offset { right:  0, up: -1, front:  1},   Offset { right:  0, up:  0, front:  0},   Offset { right:  0, up:  0, front:  1},  Offset { right:  1, up: -1, front:  0},    Offset { right:  1, up: -1, front:  1},   Offset { right:  1, up:  0, front:  0},  Offset { right:  1, up:  0, front:  1} ] },
+    CubeCorner { position: ( 0.5,  0.5,  0.5), neighbors: [Offset { right:  0, up:  0, front:  0},   Offset { right:  0, up:  0, front:  1},   Offset { right:  0, up:  1, front:  0},   Offset { right:  0, up:  1, front:  1},  Offset { right:  1, up:  0, front:  0},    Offset { right:  1, up:  0, front:  1},   Offset { right:  1, up:  1, front:  0},  Offset { right:  1, up:  1, front:  1} ] },
+    CubeCorner { position: (-0.5,  0.5,  0.5), neighbors: [Offset { right: -1, up:  0, front:  0},   Offset { right: -1, up:  0, front:  1},   Offset { right: -1, up:  1, front:  0},   Offset { right: -1, up:  1, front:  1},  Offset { right:  0, up:  0, front:  0},    Offset { right:  0, up:  0, front:  1},   Offset { right:  0, up:  1, front:  0},  Offset { right:  0, up:  1, front:  1} ] },
 ];
 
 #[rustfmt::skip]
@@ -67,9 +61,20 @@ const CUBE_FACES: [Face; 6] = [
     Face { indices: [4, 5, 0, 0, 5, 1], facing: Offset { right: 0, up: -1, front: 0 } },
 ];
 
+struct CubeCorner {
+    position: (f32, f32, f32),
+    neighbors: [Offset; 8],
+}
+
 struct Face {
     indices: [usize; 6],
     facing: Offset,
+}
+
+struct Offset {
+    up: i32,
+    right: i32,
+    front: i32,
 }
 
 fn main() {
@@ -586,10 +591,9 @@ fn generate_verts_for_cube(
 
                     if cells[face_neighbor_idx] == 0 {
                         Some(face.indices.iter().map(move |&v_idx| {
-                            let vertex_and_offsets = CUBE_VERTICES[v_idx];
-                            let vertex = vertex_and_offsets.0;
-                            let offsets = vertex_and_offsets.1;
-                            let pos = vertex.position;
+                            let corner = &CUBE_CORNERS[v_idx];
+                            let pos = corner.position;
+                            let offsets = &corner.neighbors;
 
                             // determine ao of vertex
                             let color = get_color_of_vertex(cells, idx, offsets);
@@ -616,15 +620,17 @@ fn get_color_of_vertex(cells: &[u8], base_idx: usize, offsets: &[Offset]) -> (f3
 
     for offset in offsets.iter() {
         let idx_offset = offset.get_idx_offset(SIZE);
-        // pray it doesn't overflow
+        // pray it doesn't overflow in the usize -> i32 conversion
+        // would happen with size > 1200, which is pretty extreme but possible.
+        // usize overflows at size > 1500, which isn't so great either.
+        // turns out 3d is hard! ;)
         let new_idx = ((base_idx as i32) + idx_offset) as usize;
         if cells[new_idx] > 0 {
             neighbor_count += 1;
         }
     }
 
-    // todo: no negatives :p
-    let value = 1.0 - (neighbor_count as f32 / 20.0);
+    let value = 1.0 - (neighbor_count as f32 / 26.0);
 
     (value, value, value, 1.0)
 }
