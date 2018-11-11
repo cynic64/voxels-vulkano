@@ -150,7 +150,7 @@ fn main() {
     // mvp
     let model = glm::scale(&glm::Mat4::identity(), &glm::vec3(1.0, 1.0, 1.0));
     let mut view: [[f32; 4]; 4];
-    let projection = glm::perspective(
+    let mut projection = glm::perspective(
         // fov
         1.0,
         // aspect ratio
@@ -279,7 +279,17 @@ fn main() {
 
             framebuffers = None;
 
-            // todo: fix aspect ratio on resize
+            projection = glm::perspective(
+                // aspect ratio
+                dimensions[0] as f32 / dimensions[1] as f32,
+                // fov
+                1.5,
+                // near
+                0.1,
+                // far
+                100_000_000.,
+            );
+
             dynamic_state.viewports = Some(vec![vulkano::pipeline::viewport::Viewport {
                 origin: [0.0, 0.0],
                 dimensions: [dimensions[0] as f32, dimensions[1] as f32],
