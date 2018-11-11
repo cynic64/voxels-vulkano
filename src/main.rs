@@ -569,7 +569,8 @@ fn generate_vertices(cells: &[u8], positions: &[(f32, f32, f32)]) -> Vec<Vertex>
             if cells[idx] > 0 && ca::count_neighbors(cells, idx, SIZE) < 26 {
                 // iterate over each face
                 Some(CUBE_FACES.iter().filter_map(move |face| {
-                    let face_neighbor_idx = ((idx as i32) + face.facing.get_idx_offset(SIZE)) as usize;
+                    let face_neighbor_idx =
+                        ((idx as i32) + face.facing.get_idx_offset(SIZE)) as usize;
                     if cells[face_neighbor_idx] == 0 {
                         Some(face.indices.iter().map(move |&v_idx| {
                             let v = CUBE_VERTICES[v_idx];
