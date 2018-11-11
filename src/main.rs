@@ -574,11 +574,7 @@ fn generate_vertices(cells: &[u8], positions: &[(f32, f32, f32)]) -> Vec<Vertex>
         .collect()
 }
 
-fn generate_verts_for_cube(
-    cells: &[u8],
-    idx: usize,
-    offset: (f32, f32, f32),
-) -> Vec<Vertex> {
+fn generate_verts_for_cube(cells: &[u8], idx: usize, offset: (f32, f32, f32)) -> Vec<Vertex> {
     // make sure cell is alive and not totally obscured
     if cells[idx] > 0 && ca::count_neighbors(cells, idx, SIZE) < 26 {
         CUBE_FACES
