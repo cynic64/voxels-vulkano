@@ -57,6 +57,7 @@ const CUBE_VERTICES: [(Vertex, &[Offset]); 8] = [
     (Vertex { position: (-0.5,  0.5,  0.5), color: (1.0, 0.0, 1.0, 1.0) }, &[Offset { right: -1, up:  0, front:  0},   Offset { right: -1, up:  0, front:  1},   Offset { right: -1, up:  1, front:  0},   Offset { right: -1, up:  1, front:  1},  Offset { right:  0, up:  0, front:  0},    Offset { right:  0, up:  0, front:  1},   Offset { right:  0, up:  1, front:  0},  Offset { right:  0, up:  1, front:  1}]),
 ];
 
+#[rustfmt::skip]
 const CUBE_FACES: [Face; 6] = [
     Face { indices: [0, 1, 3, 3, 1, 2], facing: Offset { right: 0, up: 0, front: -1 } },
     Face { indices: [1, 5, 2, 2, 5, 6], facing: Offset { right: 1, up: 0, front: 0 } },
