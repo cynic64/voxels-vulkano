@@ -245,6 +245,7 @@ fn main() {
         d: false,
     };
     let mut last_frame = std::time::Instant::now();
+    let first_frame = std::time::Instant::now();
 
     loop {
         let delta = get_elapsed(last_frame);
@@ -549,7 +550,9 @@ fn main() {
         }
     }
 
-    println!("Frames: {}", frame_count);
+    let elapsed = get_elapsed(first_frame);
+    let fps = (frame_count as f32) / elapsed;
+    println!("FPS: {}", fps);
 }
 
 fn generate_vertices(cells: &[u8], positions: &[(f32, f32, f32)]) -> Vec<Vertex> {
