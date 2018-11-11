@@ -58,11 +58,6 @@ const CUBE_VERTICES: [(Vertex, &[Offset]); 8] = [
     (Vertex { position: (-0.5,  0.5,  0.5), color: (1.0, 0.0, 1.0, 1.0) }, &[Offset { right: -1, up:  0, front:  0},   Offset { right: -1, up:  0, front:  1},   Offset { right: -1, up:  1, front:  0},   Offset { right: -1, up:  1, front:  1},  Offset { right:  0, up:  0, front:  0},    Offset { right:  0, up:  0, front:  1},   Offset { right:  0, up:  1, front:  0},  Offset { right:  0, up:  1, front:  1}]),
 ];
 
-const CUBE_INDICES: [u32; 36] = [
-    0, 1, 3, 3, 1, 2, 1, 5, 2, 2, 5, 6, 5, 4, 6, 6, 4, 7, 4, 0, 7, 7, 0, 3, 3, 2, 7, 7, 2, 6, 4, 5,
-    0, 0, 5, 1,
-];
-
 fn main() {
     let positions = generate_positions();
     let mut ca = setup_ca();
@@ -161,14 +156,7 @@ fn main() {
         100_000_000.,
     );
 
-    let (mut vertex_buffer, indices) = update_vbuf(&ca.cells, &positions, device.clone());
-    let index_buffer = vulkano::buffer::cpu_access::CpuAccessibleBuffer::from_iter(
-        device.clone(),
-        vulkano::buffer::BufferUsage::all(),
-        indices.iter().cloned(),
-    )
-    .expect("failed to create buffer");
-
+    let mut vertex_buffer = update_vbuf(&ca.cells, &positions, device.clone());
     let uniform_buffer = vulkano::buffer::cpu_pool::CpuBufferPool::<vs::ty::Data>::new(
         device.clone(),
         vulkano::buffer::BufferUsage::all(),
@@ -377,11 +365,10 @@ fn main() {
                 vec![[0.2, 0.2, 0.2, 1.0].into(), 1f32.into()],
             )
             .unwrap()
-            .draw_indexed(
+            .draw(
                 pipeline.clone(),
                 &dynamic_state,
                 vertex_buffer.clone(),
-                index_buffer.clone(),
                 set.clone(),
                 (),
             )
@@ -435,7 +422,7 @@ fn main() {
                         ..
                     } => {
                         ca.next_gen();
-                        vertex_buffer = update_vbuf(&ca.cells, &positions, device.clone()).0;
+                        vertex_buffer = update_vbuf(&ca.cells, &positions, device.clone());
                     }
                     WindowEvent::KeyboardInput {
                         input:
@@ -590,64 +577,6 @@ fn generate_vertices(cells: &[u8], positions: &[(f32, f32, f32)]) -> Vec<Vertex>
         .collect()
 }
 
-fn generate_indices(cells: &[u8]) -> Vec<u32> {
-    cells
-        .iter()
-        .enumerate()
-        .filter_map(|(idx, &state)| {
-            if state > 0 {
-                // make sure this cell isn't totally obscured
-                let neighbors: u8 = [
-                    cells[idx + (SIZE * SIZE) + SIZE + 1],
-                    cells[idx + (SIZE * SIZE) + SIZE],
-                    cells[idx + (SIZE * SIZE) + SIZE - 1],
-                    cells[idx + (SIZE * SIZE) + 1],
-                    cells[idx + (SIZE * SIZE)],
-                    cells[idx + (SIZE * SIZE) - 1],
-                    cells[idx + (SIZE * SIZE) - SIZE + 1],
-                    cells[idx + (SIZE * SIZE) - SIZE],
-                    cells[idx + (SIZE * SIZE) - SIZE - 1],
-                    cells[idx + SIZE + 1],
-                    cells[idx + SIZE],
-                    cells[idx + SIZE - 1],
-                    cells[idx + 1],
-                    cells[idx - 1],
-                    cells[idx - SIZE + 1],
-                    cells[idx - SIZE],
-                    cells[idx - SIZE - 1],
-                    cells[idx - (SIZE * SIZE) + SIZE + 1],
-                    cells[idx - (SIZE * SIZE) + SIZE],
-                    cells[idx - (SIZE * SIZE) + SIZE - 1],
-                    cells[idx - (SIZE * SIZE) + 1],
-                    cells[idx - (SIZE * SIZE)],
-                    cells[idx - (SIZE * SIZE) - 1],
-                    cells[idx - (SIZE * SIZE) - SIZE + 1],
-                    cells[idx - (SIZE * SIZE) - SIZE],
-                    cells[idx - (SIZE * SIZE) - SIZE - 1],
-                ]
-                .iter()
-                .sum();
-
-                if neighbors < 26 {
-                    // not occluded, must be drawn
-                    let start_idx = idx * CUBE_VERTICES.len();
-                    Some(
-                        CUBE_INDICES
-                            .iter()
-                            .map(|c_idx| (start_idx as u32) + c_idx)
-                            .collect::<Vec<_>>(),
-                    )
-                } else {
-                    None
-                }
-            } else {
-                None
-            }
-        })
-        .flatten()
-        .collect()
-}
-
 fn generate_positions() -> Vec<(f32, f32, f32)> {
     (0..SIZE)
         .map(|y| {
@@ -678,21 +607,14 @@ fn update_vbuf(
     cells: &[u8],
     positions: &[(f32, f32, f32)],
     device: std::sync::Arc<vulkano::device::Device>,
-) -> (
-    std::sync::Arc<vulkano::buffer::cpu_access::CpuAccessibleBuffer<[Vertex]>>,
-    Vec<u32>,
-) {
+) -> std::sync::Arc<vulkano::buffer::cpu_access::CpuAccessibleBuffer<[Vertex]>> {
     let vertices = generate_vertices(cells, positions);
-    let vertex_buffer = vulkano::buffer::cpu_access::CpuAccessibleBuffer::from_iter(
+    vulkano::buffer::cpu_access::CpuAccessibleBuffer::from_iter(
         device.clone(),
         vulkano::buffer::BufferUsage::vertex_buffer(),
         vertices.iter().cloned(),
     )
-    .expect("failed to create buffer");
-
-    let indices = generate_indices(cells);
-
-    (vertex_buffer, indices)
+    .expect("failed to create buffer")
 }
 
 pub fn get_elapsed(start: std::time::Instant) -> f32 {
