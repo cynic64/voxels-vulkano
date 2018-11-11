@@ -170,7 +170,7 @@ fn main() {
         100_000_000.,
     );
 
-    let mut vertex_buffer = update_vbuf(&ca.cells, &positions, device.clone());
+    let mut vertex_buffer = update_vbuf(&ca.cells, &positions, &device.clone());
     let uniform_buffer = vulkano::buffer::cpu_pool::CpuBufferPool::<vs::ty::Data>::new(
         device.clone(),
         vulkano::buffer::BufferUsage::all(),
@@ -436,7 +436,7 @@ fn main() {
                         ..
                     } => {
                         ca.next_gen();
-                        vertex_buffer = update_vbuf(&ca.cells, &positions, device.clone());
+                        vertex_buffer = update_vbuf(&ca.cells, &positions, &device.clone());
                     }
                     WindowEvent::KeyboardInput {
                         input:
@@ -641,7 +641,7 @@ fn setup_ca() -> ca::CellA {
 fn update_vbuf(
     cells: &[u8],
     positions: &[(f32, f32, f32)],
-    device: std::sync::Arc<vulkano::device::Device>,
+    device: &std::sync::Arc<vulkano::device::Device>,
 ) -> std::sync::Arc<vulkano::buffer::cpu_access::CpuAccessibleBuffer<[Vertex]>> {
     let vertices = generate_vertices(cells, positions);
     vulkano::buffer::cpu_access::CpuAccessibleBuffer::from_iter(
