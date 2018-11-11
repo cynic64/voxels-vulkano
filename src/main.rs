@@ -548,15 +548,15 @@ fn generate_vertices(cells: &[u8], positions: &[(f32, f32, f32)]) -> Vec<Vertex>
     positions
         .iter()
         .enumerate()
-        .map(|(idx, &offset)| {
-            CUBE_INDICES.iter().map(move |&v_idx| {
-                let v = CUBE_VERTICES[v_idx];
-                let pos = v.0.position;
+        .filter_map(|(idx, &offset)| {
+            if cells[idx] > 0 {
+                Some(CUBE_INDICES.iter().map(move |&v_idx| {
+                    let v = CUBE_VERTICES[v_idx];
+                    let pos = v.0.position;
 
-                // determine color of vertex
-                let color = {
-                    let mut neighbor_count = 0;
-                    if cells[idx] > 0 {
+                    // determine color of vertex
+                    let color = {
+                        let mut neighbor_count = 0;
                         for offset in v.1.iter() {
                             let idx_offset = offset.get_idx_offset(SIZE);
                             // pray it doesn't overflow
@@ -565,19 +565,21 @@ fn generate_vertices(cells: &[u8], positions: &[(f32, f32, f32)]) -> Vec<Vertex>
                                 neighbor_count += 1;
                             }
                         }
+
+                        // todo: no negatives :p
+                        let value = 1.0 - (neighbor_count as f32 / 20.0);
+
+                        (value, value, value, 1.0)
+                    };
+
+                    Vertex {
+                        position: (pos.0 + offset.0, pos.1 + offset.1, pos.2 + offset.2),
+                        color,
                     }
-
-                    // todo: no negatives :p
-                    let value = 1.0 - (neighbor_count as f32 / 20.0);
-
-                    (value, value, value, 1.0)
-                };
-
-                Vertex {
-                    position: (pos.0 + offset.0, pos.1 + offset.1, pos.2 + offset.2),
-                    color,
-                }
-            })
+                }))
+            } else {
+                None
+            }
         })
         .flatten()
         .collect()
