@@ -586,10 +586,7 @@ fn generate_verts_for_cube(
                 .iter()
                 .filter_map(move |face| {
                     // iterate over each face
-                    let face_neighbor_idx =
-                        ((idx as i32) + face.facing.get_idx_offset(SIZE)) as usize;
-
-                    if cells[face_neighbor_idx] == 0 {
+                    if face.is_visible(cells, idx, SIZE) {
                         Some(face.indices.iter().map(move |&v_idx| {
                             let corner = &CUBE_CORNERS[v_idx];
                             let pos = corner.position;
@@ -684,6 +681,14 @@ impl Offset {
         let sz = size as i32;
 
         self.up * (sz * sz) + self.front * sz + self.right
+    }
+}
+
+impl Face {
+    fn is_visible(&self, cells: &[u8], idx: usize, size: usize) -> bool {
+        let neighbor_idx = ((idx as i32) + self.facing.get_idx_offset(size)) as usize;
+
+        cells[neighbor_idx] == 0
     }
 }
 
