@@ -58,12 +58,12 @@ const CUBE_VERTICES: [(Vertex, &[Offset]); 8] = [
 ];
 
 const CUBE_FACES: [Face; 6] = [
-    Face { indices: [0, 1, 3, 3, 1, 2], facing: Offset { right: 1, up: 0, front: 0 } },
+    Face { indices: [0, 1, 3, 3, 1, 2], facing: Offset { right: 0, up: 0, front: -1 } },
     Face { indices: [1, 5, 2, 2, 5, 6], facing: Offset { right: 1, up: 0, front: 0 } },
-    Face { indices: [5, 4, 6, 6, 4, 7], facing: Offset { right: 1, up: 0, front: 0 } },
-    Face { indices: [4, 0, 7, 7, 0, 3], facing: Offset { right: 1, up: 0, front: 0 } },
-    Face { indices: [3, 2, 7, 7, 2, 6], facing: Offset { right: 1, up: 0, front: 0 } },
-    Face { indices: [4, 5, 0, 0, 5, 1], facing: Offset { right: 1, up: 0, front: 0 } },
+    Face { indices: [5, 4, 6, 6, 4, 7], facing: Offset { right: 0, up: 0, front: 1 } },
+    Face { indices: [4, 0, 7, 7, 0, 3], facing: Offset { right: -1, up: 0, front: 0 } },
+    Face { indices: [3, 2, 7, 7, 2, 6], facing: Offset { right: 0, up: 1, front: 0 } },
+    Face { indices: [4, 5, 0, 0, 5, 1], facing: Offset { right: 0, up: -1, front: 0 } },
 ];
 
 struct Face {
