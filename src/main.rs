@@ -35,6 +35,12 @@ use std::sync::Arc;
 
 const SIZE: usize = 128;
 
+const EXTRA_THING: [Vertex; 3] = [
+    Vertex { position: (-100.0, -100.0, 0.0), color: (1.0, 0.0, 1.0, 1.0) },
+    Vertex { position: ( 100.0, -100.0, 0.0), color: (1.0, 0.0, 1.0, 1.0) },
+    Vertex { position: (-100.0,  100.0, 0.0), color: (1.0, 0.0, 1.0, 1.0) },
+];
+
 impl_vertex!(Vertex, position, color);
 
 fn main() {
@@ -136,6 +142,12 @@ fn main() {
     );
 
     let mut vertex_buffer = mesher::update_vbuf(&ca.cells, &positions, &device.clone());
+    let vbuf2 = vulkano::buffer::cpu_access::CpuAccessibleBuffer::from_iter(
+        device.clone(),
+        vulkano::buffer::BufferUsage::vertex_buffer(),
+        EXTRA_THING.iter().cloned(),
+    )
+    .expect("failed to create buffer");
     let uniform_buffer = vulkano::buffer::cpu_pool::CpuBufferPool::<vs::ty::Data>::new(
         device.clone(),
         vulkano::buffer::BufferUsage::all(),
@@ -348,6 +360,14 @@ fn main() {
                 pipeline.clone(),
                 &dynamic_state,
                 vertex_buffer.clone(),
+                set.clone(),
+                (),
+            )
+            .unwrap()
+            .draw(
+                pipeline.clone(),
+                &dynamic_state,
+                vbuf2.clone(),
                 set.clone(),
                 (),
             )
