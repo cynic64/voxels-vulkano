@@ -36,16 +36,25 @@ use std::sync::Arc;
 const SIZE: usize = 128;
 
 const EXTRA_THING: [Vertex; 3] = [
-    Vertex { position: (-100.0, -100.0, 0.0), color: (1.0, 0.0, 1.0, 1.0) },
-    Vertex { position: ( 100.0, -100.0, 0.0), color: (1.0, 0.0, 1.0, 1.0) },
-    Vertex { position: (-100.0,  100.0, 0.0), color: (1.0, 0.0, 1.0, 1.0) },
+    Vertex {
+        position: (-100.0, -100.0, 0.0),
+        color: (1.0, 0.0, 1.0, 1.0),
+    },
+    Vertex {
+        position: (100.0, -100.0, 0.0),
+        color: (1.0, 0.0, 1.0, 1.0),
+    },
+    Vertex {
+        position: (-100.0, 100.0, 0.0),
+        color: (1.0, 0.0, 1.0, 1.0),
+    },
 ];
 
 impl_vertex!(Vertex, position, color);
 
 fn main() {
     let positions = mesher::generate_positions();
-    let mut ca = setup_ca();
+    let ca = setup_ca();
     let mut cam = camera::Camera::default();
 
     //-------------------------------------------------------------------------------------//
@@ -141,13 +150,15 @@ fn main() {
         100_000_000.,
     );
 
-    let mut vertex_buffer = mesher::update_vbuf(&ca.cells, &positions, &device.clone());
-    let vbuf2 = vulkano::buffer::cpu_access::CpuAccessibleBuffer::from_iter(
-        device.clone(),
-        vulkano::buffer::BufferUsage::vertex_buffer(),
-        EXTRA_THING.iter().cloned(),
-    )
-    .expect("failed to create buffer");
+    let meshes = vec![
+        mesher::update_vbuf(&ca.cells, &positions, &device.clone()),
+        vulkano::buffer::cpu_access::CpuAccessibleBuffer::from_iter(
+            device.clone(),
+            vulkano::buffer::BufferUsage::vertex_buffer(),
+            EXTRA_THING.iter().cloned(),
+        )
+        .expect("failed to create buffer"),
+    ];
     let uniform_buffer = vulkano::buffer::cpu_pool::CpuBufferPool::<vs::ty::Data>::new(
         device.clone(),
         vulkano::buffer::BufferUsage::all(),
@@ -311,6 +322,10 @@ fn main() {
             cam.move_right(delta);
         }
 
+        if frame_count % 100 == 0 {
+            cam.print_position();
+        }
+
         view = cam.get_view_matrix().into();
 
         let uniform_buffer_subbuffer = {
@@ -359,15 +374,7 @@ fn main() {
             .draw(
                 pipeline.clone(),
                 &dynamic_state,
-                vertex_buffer.clone(),
-                set.clone(),
-                (),
-            )
-            .unwrap()
-            .draw(
-                pipeline.clone(),
-                &dynamic_state,
-                vbuf2.clone(),
+                meshes[0].clone(),
                 set.clone(),
                 (),
             )
@@ -420,8 +427,9 @@ fn main() {
                             },
                         ..
                     } => {
-                        ca.next_gen();
-                        vertex_buffer = mesher::update_vbuf(&ca.cells, &positions, &device.clone());
+                        println!("Implement meeeeeeee!");
+                        // ca.next_gen();
+                        // vertex_buffer = mesher::update_vbuf(&ca.cells, &positions, &device.clone());
                     }
                     WindowEvent::KeyboardInput {
                         input:
