@@ -25,6 +25,7 @@ use winit::{
 mod ca;
 mod camera;
 mod mesher;
+mod sector;
 
 use self::mesher::Vertex;
 
@@ -235,6 +236,7 @@ fn main() {
     };
     let mut last_frame = std::time::Instant::now();
     let first_frame = std::time::Instant::now();
+    let mut visible_meshes = sector::get_near_mesh_indices(&cam.position, SIZE);
 
     loop {
         let delta = get_elapsed(last_frame);
@@ -359,7 +361,8 @@ fn main() {
                 Err(err) => panic!("{:?}", err),
             };
 
-        let command_buffer =
+        // building the command buffer!
+        let mut command_buffer_incomplete =
             vulkano::command_buffer::AutoCommandBufferBuilder::primary_one_time_submit(
                 device.clone(),
                 queue.family(),
@@ -370,19 +373,24 @@ fn main() {
                 false,
                 vec![[0.2, 0.2, 0.2, 1.0].into(), 1f32.into()],
             )
-            .unwrap()
-            .draw(
+            .unwrap();
+
+        for &idx in visible_meshes.iter() {
+            command_buffer_incomplete = command_buffer_incomplete.draw(
                 pipeline.clone(),
                 &dynamic_state,
-                meshes[0].clone(),
+                meshes[idx].clone(),
                 set.clone(),
                 (),
             )
-            .unwrap()
+            .unwrap();
+        }
+        let command_buffer = command_buffer_incomplete
             .end_render_pass()
             .unwrap()
             .build()
             .unwrap();
+        // done
 
         let future = previous_frame
             .join(acquire_future)
