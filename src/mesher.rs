@@ -45,11 +45,33 @@ struct Offset {
 use super::SIZE;
 use super::ca;
 
+pub fn update_vbuf(
+    cells: &[u8],
+    positions: &[(f32, f32, f32)],
+    device: &std::sync::Arc<vulkano::device::Device>,
+) -> std::sync::Arc<vulkano::buffer::cpu_access::CpuAccessibleBuffer<[Vertex]>> {
+    let vertices = generate_vertices_for_indices(cells, positions, &(0..1000000).collect::<Vec<_>>());
+    vulkano::buffer::cpu_access::CpuAccessibleBuffer::from_iter(
+        device.clone(),
+        vulkano::buffer::BufferUsage::vertex_buffer(),
+        vertices.iter().cloned(),
+    )
+    .expect("failed to create buffer")
+}
+
 fn generate_vertices(cells: &[u8], positions: &[(f32, f32, f32)]) -> Vec<Vertex> {
     positions
         .iter()
         .enumerate()
         .map(|(idx, &offset)| generate_verts_for_cube(cells, idx, offset))
+        .flatten()
+        .collect()
+}
+
+fn generate_vertices_for_indices(cells: &[u8], positions: &[(f32, f32, f32)], indices: &[usize]) -> Vec<Vertex> {
+    indices
+        .iter()
+        .map(|&idx| generate_verts_for_cube(cells, idx, positions[idx]))
         .flatten()
         .collect()
 }
@@ -119,20 +141,6 @@ pub fn generate_positions() -> Vec<(f32, f32, f32)> {
         .flatten()
         .flatten()
         .collect()
-}
-
-pub fn update_vbuf(
-    cells: &[u8],
-    positions: &[(f32, f32, f32)],
-    device: &std::sync::Arc<vulkano::device::Device>,
-) -> std::sync::Arc<vulkano::buffer::cpu_access::CpuAccessibleBuffer<[Vertex]>> {
-    let vertices = generate_vertices(cells, positions);
-    vulkano::buffer::cpu_access::CpuAccessibleBuffer::from_iter(
-        device.clone(),
-        vulkano::buffer::BufferUsage::vertex_buffer(),
-        vertices.iter().cloned(),
-    )
-    .expect("failed to create buffer")
 }
 
 impl Offset {
