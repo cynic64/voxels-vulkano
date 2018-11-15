@@ -152,15 +152,7 @@ fn main() {
         100_000_000.,
     );
 
-    let meshes = vec![
-        mesher::update_vbuf(&ca.cells, &positions, &device.clone()),
-        vulkano::buffer::cpu_access::CpuAccessibleBuffer::from_iter(
-            device.clone(),
-            vulkano::buffer::BufferUsage::vertex_buffer(),
-            EXTRA_THING.iter().cloned(),
-        )
-        .expect("failed to create buffer"),
-    ];
+    let meshes = mesher::get_chunked_vertex_buffers(&ca.cells, &positions, &device.clone());
     let uniform_buffer = vulkano::buffer::cpu_pool::CpuBufferPool::<vs::ty::Data>::new(
         device.clone(),
         vulkano::buffer::BufferUsage::all(),
@@ -377,14 +369,15 @@ fn main() {
             .unwrap();
 
         for &idx in visible_meshes.iter() {
-            command_buffer_incomplete = command_buffer_incomplete.draw(
-                pipeline.clone(),
-                &dynamic_state,
-                meshes[idx].clone(),
-                set.clone(),
-                (),
-            )
-            .unwrap();
+            command_buffer_incomplete = command_buffer_incomplete
+                .draw(
+                    pipeline.clone(),
+                    &dynamic_state,
+                    meshes[idx].clone(),
+                    set.clone(),
+                    (),
+                )
+                .unwrap();
         }
         let command_buffer = command_buffer_incomplete
             .end_render_pass()

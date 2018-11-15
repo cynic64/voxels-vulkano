@@ -42,15 +42,33 @@ struct Offset {
     front: i32,
 }
 
-use super::SIZE;
 use super::ca;
+use super::SIZE;
 
-pub fn update_vbuf(
+pub fn get_chunked_vertex_buffers(
     cells: &[u8],
     positions: &[(f32, f32, f32)],
     device: &std::sync::Arc<vulkano::device::Device>,
+) -> Vec<std::sync::Arc<vulkano::buffer::cpu_access::CpuAccessibleBuffer<[Vertex]>>> {
+    // create lists of indices...
+    let chunked_indices = vec![vec![1, 2, 3], vec![2, 3, 4]];
+    let mut vertex_buffers = Vec::new();
+
+    for indices in chunked_indices.iter() {
+        let vbuf = update_vbuf(cells, positions, device, indices);
+        vertex_buffers.push(vbuf);
+    }
+
+    vertex_buffers
+}
+
+fn update_vbuf(
+    cells: &[u8],
+    positions: &[(f32, f32, f32)],
+    device: &std::sync::Arc<vulkano::device::Device>,
+    indices: &[usize],
 ) -> std::sync::Arc<vulkano::buffer::cpu_access::CpuAccessibleBuffer<[Vertex]>> {
-    let vertices = generate_vertices_for_indices(cells, positions, &(0..1000000).collect::<Vec<_>>());
+    let vertices = generate_vertices_for_indices(cells, positions, indices);
     vulkano::buffer::cpu_access::CpuAccessibleBuffer::from_iter(
         device.clone(),
         vulkano::buffer::BufferUsage::vertex_buffer(),
@@ -68,7 +86,11 @@ fn generate_vertices(cells: &[u8], positions: &[(f32, f32, f32)]) -> Vec<Vertex>
         .collect()
 }
 
-fn generate_vertices_for_indices(cells: &[u8], positions: &[(f32, f32, f32)], indices: &[usize]) -> Vec<Vertex> {
+fn generate_vertices_for_indices(
+    cells: &[u8],
+    positions: &[(f32, f32, f32)],
+    indices: &[usize],
+) -> Vec<Vertex> {
     indices
         .iter()
         .map(|&idx| generate_verts_for_cube(cells, idx, positions[idx]))
