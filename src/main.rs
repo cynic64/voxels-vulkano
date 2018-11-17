@@ -229,7 +229,7 @@ fn main() {
     };
     let mut last_frame = std::time::Instant::now();
     let first_frame = std::time::Instant::now();
-    let mut visible_meshes = sector::get_near_mesh_indices(&cam.position, SIZE);
+    let mut visible_meshes;
 
     loop {
         let delta = get_elapsed(last_frame);
@@ -322,6 +322,7 @@ fn main() {
         }
 
         view = cam.get_view_matrix().into();
+        visible_meshes = sector::get_near_mesh_indices(&cam.position, SIZE);
 
         let uniform_buffer_subbuffer = {
             let uniform_data = vs::ty::Data {
