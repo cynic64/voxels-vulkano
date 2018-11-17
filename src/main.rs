@@ -322,7 +322,7 @@ fn main() {
         }
 
         view = cam.get_view_matrix().into();
-        visible_meshes = sector::get_near_mesh_indices(&cam.position, SIZE);
+        visible_meshes = sector::get_near_mesh_indices(&cam.position);
 
         let uniform_buffer_subbuffer = {
             let uniform_data = vs::ty::Data {
