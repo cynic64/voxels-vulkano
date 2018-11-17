@@ -51,7 +51,8 @@ pub fn get_chunked_vertex_buffers(
     device: &std::sync::Arc<vulkano::device::Device>,
 ) -> Vec<std::sync::Arc<vulkano::buffer::cpu_access::CpuAccessibleBuffer<[Vertex]>>> {
     // create lists of indices...
-    let chunked_indices = vec![vec![1, 2, 3], vec![2, 3, 4]];
+    let chunked_indices = generate_chunked_indices();
+
     let mut vertex_buffers = Vec::new();
 
     for indices in chunked_indices.iter() {
@@ -163,6 +164,45 @@ pub fn generate_positions() -> Vec<(f32, f32, f32)> {
         .flatten()
         .flatten()
         .collect()
+}
+
+fn generate_chunked_indices() -> Vec<Vec<usize>> {
+    use super::SIZE;
+    use super::SECTOR_SIDE_LEN;
+    let world_size_chunks = SIZE / SECTOR_SIDE_LEN;
+
+    // todo: turn this into a ridiculously far-right iter chain
+    let mut chunked_indices = Vec::new();
+    for base_z_idx in 0 .. world_size_chunks {
+        let base_z = base_z_idx * SECTOR_SIDE_LEN;
+
+        for base_y_idx in 0 .. world_size_chunks {
+            let base_y = base_y_idx * SECTOR_SIDE_LEN;
+
+            for base_x_idx in 0 .. world_size_chunks {
+                let base_x = base_x_idx * SECTOR_SIDE_LEN;
+
+                let mut indices = Vec::new();
+                for sub_z in 0 .. SECTOR_SIDE_LEN {
+                    for sub_y in 0 .. SECTOR_SIDE_LEN {
+                        for sub_x in 0 .. SECTOR_SIDE_LEN {
+                            indices.push(xyz_to_linear(base_x + sub_x, base_y + sub_y, base_z + sub_z));
+                        }
+                    }
+                }
+
+                chunked_indices.push(indices);
+            }
+        }
+    }
+
+    chunked_indices
+}
+
+fn xyz_to_linear(x: usize, y: usize, z: usize) -> usize {
+    // uses [z][y][x]
+    use super::SIZE;
+    z * SIZE * SIZE + y * SIZE + x
 }
 
 impl Offset {
