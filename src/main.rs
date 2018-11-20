@@ -179,6 +179,7 @@ fn main() {
             .fragment_shader(fs.main_entry_point(), ())
             .depth_stencil_simple_depth()
             .render_pass(vulkano::framebuffer::Subpass::from(renderpass.clone(), 0).unwrap())
+            .cull_mode_back()
             .build(device.clone())
             .unwrap(),
     );
