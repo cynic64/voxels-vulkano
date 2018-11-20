@@ -41,6 +41,7 @@ pub fn get_near_mesh_indices(camera_position: &Vec3) -> Vec<usize> {
     let world_size_chunks = SIZE / SECTOR_SIDE_LEN;
 
     let base_x = (camera_position.x as usize) / SECTOR_SIDE_LEN;
+    // z and y are swapped, because for the ca z is up and down and y forward/backward whereas in the camera position it is swapped
     let base_y = (camera_position.z as usize) / SECTOR_SIDE_LEN;
     let base_z = (camera_position.y as usize) / SECTOR_SIDE_LEN;
 
@@ -55,6 +56,6 @@ pub fn get_near_mesh_indices(camera_position: &Vec3) -> Vec<usize> {
         let linear_idx = z * world_size_chunks * world_size_chunks + y * world_size_chunks + x;
         indices.push(linear_idx);
     }
-    
+
     indices
 }
