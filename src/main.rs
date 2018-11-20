@@ -37,22 +37,7 @@ use std::sync::Arc;
 const SIZE: usize = 256;
 const SECTOR_SIDE_LEN: usize = 32;
 
-const EXTRA_THING: [Vertex; 3] = [
-    Vertex {
-        position: (-100.0, -100.0, 0.0),
-        color: (1.0, 0.0, 1.0, 1.0),
-    },
-    Vertex {
-        position: (100.0, -100.0, 0.0),
-        color: (1.0, 0.0, 1.0, 1.0),
-    },
-    Vertex {
-        position: (-100.0, 100.0, 0.0),
-        color: (1.0, 0.0, 1.0, 1.0),
-    },
-];
-
-impl_vertex!(Vertex, position, color);
+impl_vertex!(Vertex, position, color, normal);
 
 fn main() {
     let positions = mesher::generate_positions();
@@ -576,8 +561,10 @@ mod vs {
 
 layout(location = 0) in vec3 position;
 layout(location = 1) in vec4 color;
+layout(location = 2) in vec3 normal;
 
 layout(location = 0) out vec4 v_color;
+layout(location = 1) out vec3 v_normal;
 
 layout(set = 0, binding = 0) uniform Data {
     mat4 world;
@@ -587,6 +574,7 @@ layout(set = 0, binding = 0) uniform Data {
 
 void main() {
     v_color = color;
+    v_normal = normal;
     mat4 worldview = uniforms.view * uniforms.world;
     gl_Position = uniforms.proj * worldview * vec4(position, 1.0);
 }
@@ -602,10 +590,15 @@ mod fs {
 #version 450
 
 layout(location = 0) in vec4 v_color;
+layout(location = 1) in vec3 v_normal;
+
 layout(location = 0) out vec4 f_color;
 
+const vec3 LIGHT = vec3(3.0, 1.0, 1.0);
+
 void main() {
-    f_color = v_color;
+    float brightness = max(dot(normalize(v_normal), normalize(LIGHT)), 0.1);
+    f_color = v_color * brightness;
 }
 "]
     #[allow(dead_code)]
