@@ -35,7 +35,7 @@ use vulkano_win::VkSurfaceBuild;
 use std::sync::Arc;
 
 const SIZE: usize = 256;
-const SECTOR_SIDE_LEN: usize = 32;
+const SECTOR_SIDE_LEN: usize = 16;
 
 impl_vertex!(Vertex, position, color, normal);
 
@@ -541,7 +541,7 @@ fn main() {
 }
 
 pub fn get_elapsed(start: std::time::Instant) -> f32 {
-    start.elapsed().as_secs() as f32 + start.elapsed().subsec_millis() as f32 / 1000.0
+    start.elapsed().as_secs() as f32 + start.elapsed().subsec_nanos() as f32 / 1_000_000_000.0
 }
 
 fn setup_ca() -> ca::CellA {

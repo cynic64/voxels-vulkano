@@ -45,16 +45,16 @@ pub fn get_near_mesh_indices(camera_position: &Vec3) -> Vec<usize> {
     let base_z = (camera_position.z as usize) / SECTOR_SIDE_LEN;
 
     // again, the conversion from usize to i32 is kinda shitty :/
-    let mut indices = Vec::new();
+    // let mut indices = Vec::new();
 
-    for offset in VISIBLE_OFFSETS.iter() {
-        let x = ((base_x as i32) + offset[0]) as usize;
-        let y = ((base_y as i32) + offset[1]) as usize;
-        let z = ((base_z as i32) + offset[2]) as usize;
+    // for offset in VISIBLE_OFFSETS.iter() {
+    //     let x = ((base_x as i32) + offset[0]) as usize;
+    //     let y = ((base_y as i32) + offset[1]) as usize;
+    //     let z = ((base_z as i32) + offset[2]) as usize;
 
-        let linear_idx = z * world_size_chunks * world_size_chunks + y * world_size_chunks + x;
-        indices.push(linear_idx);
-    }
+    //     let linear_idx = z * world_size_chunks * world_size_chunks + y * world_size_chunks + x;
+    //     indices.push(linear_idx);
+    // }
 
-    indices
+    vec![base_z * world_size_chunks * world_size_chunks + base_y * world_size_chunks + base_x]
 }
