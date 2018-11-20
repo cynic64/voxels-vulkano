@@ -164,6 +164,7 @@ fn generate_chunked_indices() -> Vec<Vec<usize>> {
     use super::SECTOR_SIDE_LEN;
     use super::SIZE;
     let world_size_chunks = SIZE / SECTOR_SIDE_LEN;
+    println!("wsc: {}", world_size_chunks);
 
     // todo: turn this into a ridiculously far-right iter chain
     let mut chunked_indices = Vec::new();
