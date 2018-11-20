@@ -139,7 +139,7 @@ fn get_color_of_vertex(cells: &[u8], base_idx: usize, offsets: &[Offset]) -> (f3
         }
     }
 
-    let value = 1.0 - (neighbor_count as f32 / 26.0);
+    let value = 1.0 - (neighbor_count as f32 / 13.0);
 
     (value, value, value, 1.0)
 }
