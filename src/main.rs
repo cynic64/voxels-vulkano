@@ -87,13 +87,13 @@ fn main() {
     .expect("failed to create device");
     let queue = queues.next().unwrap();
 
+    let caps = surface
+        .capabilities(physical)
+        .expect("failed to get surface capabilities");
+
+    dimensions = caps.current_extent.unwrap_or([1024, 768]);
+
     let (mut swapchain, mut images) = {
-        let caps = surface
-            .capabilities(physical)
-            .expect("failed to get surface capabilities");
-
-        dimensions = caps.current_extent.unwrap_or([1024, 768]);
-
         let usage = caps.supported_usage_flags;
         let format = caps.supported_formats[0].0;
         let alpha = caps.supported_composite_alpha.iter().next().unwrap();
@@ -116,9 +116,25 @@ fn main() {
         .expect("failed to create swapchain")
     };
 
+    let mut multisampled_color = vulkano::image::attachment::AttachmentImage::transient_multisampled(
+        device.clone(),
+        caps.current_extent.unwrap_or([1024, 768]),
+        4,
+        caps.supported_formats[0].0,
+    )
+    .unwrap();
+
     let mut depth_buffer = vulkano::image::attachment::AttachmentImage::transient(
         device.clone(),
         dimensions,
+        vulkano::format::D16Unorm,
+    )
+    .unwrap();
+
+    let mut multisampled_depth = vulkano::image::attachment::AttachmentImage::transient_multisampled(
+        device.clone(),
+        dimensions,
+        4,
         vulkano::format::D16Unorm,
     )
     .unwrap();
@@ -149,22 +165,37 @@ fn main() {
     let renderpass = Arc::new(
         single_pass_renderpass!(device.clone(),
             attachments: {
-                color: {
+                multisampled_color: {
+                    load: Clear,
+                    store: DontCare,
+                    format: swapchain.format(),
+                    samples: 4,
+                },
+                resolve_color: {
                     load: Clear,
                     store: Store,
                     format: swapchain.format(),
                     samples: 1,
                 },
-                depth: {
+                multisampled_depth: {
                     load: Clear,
                     store: DontCare,
                     format: vulkano::format::Format::D16Unorm,
+                    samples: 4,
+                },
+                resolve_depth: {
+                    load:    DontCare,
+                    store:   Store,
+                    format:  vulkano::format::Format::D16Unorm,
                     samples: 1,
+                    initial_layout: ImageLayout::Undefined,
+                    final_layout: ImageLayout::DepthStencilAttachmentOptimal,
                 }
             },
             pass: {
-                color: [color],
-                depth_stencil: {depth}
+                color: [multisampled_color],
+                depth_stencil: {multisampled_depth},
+                resolve: [resolve_color],
             }
         )
         .unwrap(),
@@ -177,8 +208,8 @@ fn main() {
             .triangle_list()
             .viewports_dynamic_scissors_irrelevant(1)
             .fragment_shader(fs.main_entry_point(), ())
-            .depth_stencil_simple_depth()
             .render_pass(vulkano::framebuffer::Subpass::from(renderpass.clone(), 0).unwrap())
+            .depth_stencil_simple_depth()
             .cull_mode_back()
             .build(device.clone())
             .unwrap(),
@@ -230,6 +261,22 @@ fn main() {
                 .current_extent
                 .unwrap_or([1024, 768]);
 
+            multisampled_color = vulkano::image::attachment::AttachmentImage::transient_multisampled(
+                device.clone(),
+                dimensions,
+                4,
+                caps.supported_formats[0].0,
+            )
+            .unwrap();
+
+            multisampled_depth = vulkano::image::attachment::AttachmentImage::transient_multisampled(
+                device.clone(),
+                dimensions,
+                4,
+                vulkano::format::D16Unorm,
+            )
+            .unwrap();
+
             let (new_swapchain, new_images) = match swapchain.recreate_with_dimension(dimensions) {
                 Ok(r) => r,
                 Err(vulkano::swapchain::SwapchainCreationError::UnsupportedDimensions) => {
@@ -277,7 +324,11 @@ fn main() {
                     .map(|image| {
                         Arc::new(
                             vulkano::framebuffer::Framebuffer::start(renderpass.clone())
+                                .add(multisampled_color.clone())
+                                .unwrap()
                                 .add(image.clone())
+                                .unwrap()
+                                .add(multisampled_depth.clone())
                                 .unwrap()
                                 .add(depth_buffer.clone())
                                 .unwrap()
@@ -351,7 +402,7 @@ fn main() {
             .begin_render_pass(
                 framebuffers.as_ref().unwrap()[image_num].clone(),
                 false,
-                vec![[0.2, 0.2, 0.2, 1.0].into(), 1f32.into()],
+                vec![[0.2, 0.2, 0.2, 1.0].into(), [0.2, 0.2, 0.2, 1.0].into(), 1f32.into(), vulkano::format::ClearValue::None],
             )
             .unwrap();
 
