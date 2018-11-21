@@ -50,42 +50,15 @@ struct Offset {
 use super::ca;
 use super::SIZE;
 
-pub fn get_chunked_vertex_buffers(
-    cells: &[u8],
-    positions: &[(f32, f32, f32)],
-    device: &std::sync::Arc<vulkano::device::Device>,
-) -> Vec<std::sync::Arc<vulkano::buffer::cpu_access::CpuAccessibleBuffer<[Vertex]>>> {
-    // create lists of indices...
-    let start = std::time::Instant::now();
-
+pub fn generate_all_vertices(cells: &[u8], positions: &[(f32, f32, f32)]) -> Vec<Vec<Vertex>> {
     let chunked_indices = generate_chunked_indices();
 
-    let vertex_buffers = chunked_indices.par_iter()
+    chunked_indices
+        .par_iter()
         .map(|indices| {
-            update_vbuf(cells, positions, device, indices)
+            generate_vertices_for_indices(cells, positions, indices)
         })
-        .collect::<Vec<_>>();
-
-    let vps = (vertex_buffers.len() as f32) / super::get_elapsed(start);
-    println!("Overall, generating vertex buffers took: {}", super::get_elapsed(start));
-    println!("Vbufs/sec: {}", vps);
-
-    vertex_buffers
-}
-
-fn update_vbuf(
-    cells: &[u8],
-    positions: &[(f32, f32, f32)],
-    device: &std::sync::Arc<vulkano::device::Device>,
-    indices: &[usize],
-) -> std::sync::Arc<vulkano::buffer::cpu_access::CpuAccessibleBuffer<[Vertex]>> {
-    let vertices = generate_vertices_for_indices(cells, positions, indices);
-    vulkano::buffer::cpu_access::CpuAccessibleBuffer::from_iter(
-        device.clone(),
-        vulkano::buffer::BufferUsage::vertex_buffer(),
-        vertices.iter().cloned(),
-    )
-    .expect("failed to create buffer")
+        .collect()
 }
 
 fn generate_vertices_for_indices(

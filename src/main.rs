@@ -137,7 +137,17 @@ fn main() {
         100_000_000.,
     );
 
-    let meshes = mesher::get_chunked_vertex_buffers(&ca.cells, &positions, &device.clone());
+    let sector_vertices = mesher::generate_all_vertices(&ca.cells, &positions);
+    let meshes = sector_vertices.iter()
+        .map(|vertices| {
+            vulkano::buffer::cpu_access::CpuAccessibleBuffer::from_iter(
+                device.clone(),
+                vulkano::buffer::BufferUsage::vertex_buffer(),
+                vertices.iter().cloned(),
+            )
+            .expect("failed to create buffer")
+        })
+        .collect::<Vec<_>>();
     let uniform_buffer = vulkano::buffer::cpu_pool::CpuBufferPool::<vs::ty::Data>::new(
         device.clone(),
         vulkano::buffer::BufferUsage::all(),
