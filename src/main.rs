@@ -545,12 +545,14 @@ pub fn get_elapsed(start: std::time::Instant) -> f32 {
 }
 
 fn setup_ca() -> ca::CellA {
+    let start = std::time::Instant::now();
     let mut ca = ca::CellA::new(SIZE, 13, 26, 14, 26);
     ca.randomize();
     for _ in 0..20 {
         ca.next_gen()
     }
 
+    println!("CA generations took: {}", get_elapsed(start));
     ca
 }
 

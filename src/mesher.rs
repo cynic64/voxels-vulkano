@@ -1,3 +1,6 @@
+extern crate rayon;
+use rayon::prelude::*;
+
 #[derive(Copy, Clone, Debug)]
 pub struct Vertex {
     pub position: (f32, f32, f32),
@@ -53,14 +56,19 @@ pub fn get_chunked_vertex_buffers(
     device: &std::sync::Arc<vulkano::device::Device>,
 ) -> Vec<std::sync::Arc<vulkano::buffer::cpu_access::CpuAccessibleBuffer<[Vertex]>>> {
     // create lists of indices...
+    let start = std::time::Instant::now();
+
     let chunked_indices = generate_chunked_indices();
 
-    let mut vertex_buffers = Vec::new();
+    let vertex_buffers = chunked_indices.par_iter()
+        .map(|indices| {
+            update_vbuf(cells, positions, device, indices)
+        })
+        .collect::<Vec<_>>();
 
-    for indices in chunked_indices.iter() {
-        let vbuf = update_vbuf(cells, positions, device, indices);
-        vertex_buffers.push(vbuf);
-    }
+    let vps = (vertex_buffers.len() as f32) / super::get_elapsed(start);
+    println!("Overall, generating vertex buffers took: {}", super::get_elapsed(start));
+    println!("Vbufs/sec: {}", vps);
 
     vertex_buffers
 }
