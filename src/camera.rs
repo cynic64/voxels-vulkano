@@ -4,7 +4,7 @@ use self::glm::*;
 
 pub struct Camera {
     pub position: Vec3,
-    front: Vec3,
+    pub front: Vec3,
     up: Vec3,
     right: Vec3,
     world_up: Vec3,
@@ -50,6 +50,7 @@ impl Camera {
             "Camera position: x: {}, y: {}, z: {}",
             self.position.x, self.position.y, self.position.z
         );
+        println!("Pitch: {}, yaw: {}", self.pitch, self.yaw);
     }
 
     pub fn get_view_matrix(&self) -> Mat4 {
