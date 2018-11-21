@@ -47,18 +47,52 @@ struct Offset {
     front: i32,
 }
 
+pub struct VbufCache {
+    sector_vertices: Vec<Vec<Vertex>>,
+    pub vertex_buffers:
+        Vec<std::sync::Arc<vulkano::buffer::cpu_access::CpuAccessibleBuffer<[Vertex]>>>,
+    positions: Vec<(f32, f32, f32)>,
+    chunked_indices: Vec<Vec<usize>>,
+}
+
 use super::ca;
 use super::SIZE;
 
-pub fn generate_all_vertices(cells: &[u8], positions: &[(f32, f32, f32)]) -> Vec<Vec<Vertex>> {
-    let chunked_indices = generate_chunked_indices();
+impl VbufCache {
+    pub fn new() -> VbufCache {
+        let positions = generate_positions();
+        let chunked_indices = generate_chunked_indices();
 
-    chunked_indices
-        .par_iter()
-        .map(|indices| {
-            generate_vertices_for_indices(cells, positions, indices)
-        })
-        .collect()
+        VbufCache {
+            sector_vertices: vec![],
+            vertex_buffers: vec![],
+            positions,
+            chunked_indices,
+        }
+    }
+
+    pub fn update_vertices(&mut self, cells: &[u8]) {
+        self.sector_vertices = self
+            .chunked_indices
+            .par_iter()
+            .map(|indices| generate_vertices_for_indices(cells, &self.positions, indices))
+            .collect();
+    }
+
+    pub fn generate_all_vbufs(&mut self, device: &std::sync::Arc<vulkano::device::Device>) {
+        self.vertex_buffers = self
+            .sector_vertices
+            .par_iter()
+            .map(|vertices| {
+                vulkano::buffer::cpu_access::CpuAccessibleBuffer::from_iter(
+                    device.clone(),
+                    vulkano::buffer::BufferUsage::vertex_buffer(),
+                    vertices.iter().cloned(),
+                )
+                .expect("failed to create buffer")
+            })
+            .collect();
+    }
 }
 
 fn generate_vertices_for_indices(
@@ -132,22 +166,6 @@ fn get_value_of_vertex(cells: &[u8], base_idx: usize, offsets: &[Offset]) -> f32
     1.0 - (neighbor_count as f32 / 13.0)
 }
 
-pub fn generate_positions() -> Vec<(f32, f32, f32)> {
-    (0..SIZE)
-        .map(|y| {
-            (0..SIZE)
-                .map(|z| {
-                    (0..SIZE)
-                        .map(|x| (x as f32, y as f32, z as f32))
-                        .collect::<Vec<_>>()
-                })
-                .collect::<Vec<_>>()
-        })
-        .flatten()
-        .flatten()
-        .collect()
-}
-
 fn generate_chunked_indices() -> Vec<Vec<usize>> {
     use super::SECTOR_SIDE_LEN;
     use super::SIZE;
@@ -190,6 +208,22 @@ fn xyz_to_linear(x: usize, y: usize, z: usize) -> usize {
     // uses [z][y][x]
     use super::SIZE;
     z * SIZE * SIZE + y * SIZE + x
+}
+
+fn generate_positions() -> Vec<(f32, f32, f32)> {
+    (0..SIZE)
+        .map(|y| {
+            (0..SIZE)
+                .map(|z| {
+                    (0..SIZE)
+                        .map(|x| (x as f32, y as f32, z as f32))
+                        .collect::<Vec<_>>()
+                })
+                .collect::<Vec<_>>()
+        })
+        .flatten()
+        .flatten()
+        .collect()
 }
 
 impl Offset {

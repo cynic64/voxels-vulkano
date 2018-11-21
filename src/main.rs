@@ -40,7 +40,6 @@ const SECTOR_SIDE_LEN: usize = 32;
 impl_vertex!(Vertex, position, color, normal);
 
 fn main() {
-    let positions = mesher::generate_positions();
     let ca = setup_ca();
     let mut cam = camera::Camera::default();
 
@@ -86,6 +85,10 @@ fn main() {
     )
     .expect("failed to create device");
     let queue = queues.next().unwrap();
+
+    let mut vbuf_cache = mesher::VbufCache::new();
+    vbuf_cache.update_vertices(&ca.cells);
+    vbuf_cache.generate_all_vbufs(&device);
 
     let (mut swapchain, mut images) = {
         let caps = surface
@@ -137,17 +140,6 @@ fn main() {
         100_000_000.,
     );
 
-    let sector_vertices = mesher::generate_all_vertices(&ca.cells, &positions);
-    let meshes = sector_vertices.iter()
-        .map(|vertices| {
-            vulkano::buffer::cpu_access::CpuAccessibleBuffer::from_iter(
-                device.clone(),
-                vulkano::buffer::BufferUsage::vertex_buffer(),
-                vertices.iter().cloned(),
-            )
-            .expect("failed to create buffer")
-        })
-        .collect::<Vec<_>>();
     let uniform_buffer = vulkano::buffer::cpu_pool::CpuBufferPool::<vs::ty::Data>::new(
         device.clone(),
         vulkano::buffer::BufferUsage::all(),
@@ -370,7 +362,7 @@ fn main() {
                 .draw(
                     pipeline.clone(),
                     &dynamic_state,
-                    meshes[idx].clone(),
+                    vbuf_cache.vertex_buffers[idx].clone(),
                     set.clone(),
                     (),
                 )
