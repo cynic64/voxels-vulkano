@@ -94,6 +94,7 @@ fn generate_vertices_for_indices(
 
 fn generate_verts_for_cube(cells: &[u8], idx: usize, offset: (f32, f32, f32)) -> Vec<Vertex> {
     // make sure cell is alive and not totally obscured
+    let choice = rand::random::<i32>() % 3;
     if cells[idx] > 0 && ca::count_neighbors(cells, idx) < 26 {
         CUBE_FACES
             .iter()
@@ -105,7 +106,15 @@ fn generate_verts_for_cube(cells: &[u8], idx: usize, offset: (f32, f32, f32)) ->
                         let offsets = &corner.neighbors;
 
                         // determine ao of vertex
-                        let color = get_color_of_vertex(cells, idx, offsets);
+                        let value = get_value_of_vertex(cells, idx, offsets);
+                        let color;
+                        if choice == 0 {
+                            color = (value, value * 0.8, value * 0.8, 1.0);
+                        } else if choice == 1 {
+                            color = (value * 0.8, value, value * 0.8, 1.0);
+                        } else {
+                            color = (value * 0.8, value * 0.8, value, 1.0);
+                        }
 
                         Vertex {
                             position: (pos.0 + offset.0, pos.1 + offset.1, pos.2 + offset.2),
@@ -124,7 +133,7 @@ fn generate_verts_for_cube(cells: &[u8], idx: usize, offset: (f32, f32, f32)) ->
     }
 }
 
-fn get_color_of_vertex(cells: &[u8], base_idx: usize, offsets: &[Offset]) -> (f32, f32, f32, f32) {
+fn get_value_of_vertex(cells: &[u8], base_idx: usize, offsets: &[Offset]) -> f32 {
     let mut neighbor_count = 0;
 
     for offset in offsets.iter() {
@@ -139,9 +148,7 @@ fn get_color_of_vertex(cells: &[u8], base_idx: usize, offsets: &[Offset]) -> (f3
         }
     }
 
-    let value = 1.0 - (neighbor_count as f32 / 13.0);
-
-    (value, value, value, 1.0)
+    1.0 - (neighbor_count as f32 / 13.0)
 }
 
 pub fn generate_positions() -> Vec<(f32, f32, f32)> {
