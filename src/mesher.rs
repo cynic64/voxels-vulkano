@@ -1,4 +1,7 @@
 extern crate rayon;
+use std::collections::vec_deque::VecDeque;
+
+const MAX_CACHE_VBUFS: usize = 256;
 
 #[derive(Copy, Clone, Debug)]
 pub struct Vertex {
@@ -53,6 +56,7 @@ pub struct VbufCache {
     pub vertex_buffers: Vec<Option<VertexBuffer>>,
     positions: Vec<(f32, f32, f32)>,
     chunked_indices: Vec<Vec<usize>>,
+    cached_indices: VecDeque<usize>,
 }
 
 use super::ca;
@@ -74,6 +78,7 @@ impl VbufCache {
             vertex_buffers: vec![None; num_sectors],
             positions,
             chunked_indices,
+            cached_indices: VecDeque::new(),
         }
     }
 
@@ -84,6 +89,9 @@ impl VbufCache {
         device: &std::sync::Arc<vulkano::device::Device>,
     ) -> VertexBuffer {
         // the thing it returns is already cloned, don't worry :)
+
+        // maybe move this somewhere less often called? :P
+        self.uncache_oldest();
 
         // had to do the clone first to satisfy the borrow checker,
         // hopefully that doesn't cause problems :/
@@ -106,6 +114,7 @@ impl VbufCache {
             self.update_vertices_at_idx(idx, cells);
         }
         let vertices = &self.sector_vertices[idx];
+        self.cached_indices.push_back(idx);
 
         vulkano::buffer::cpu_access::CpuAccessibleBuffer::from_iter(
             device.clone(),
@@ -117,11 +126,19 @@ impl VbufCache {
 
     fn update_vertices_at_idx(&mut self, idx: usize, cells: &[u8]) {
         let indices = &self.chunked_indices[idx];
-        self.sector_vertices[idx] = generate_vertices_for_indices(
-            cells,
-            &self.positions,
-            &indices,
-        );
+        self.sector_vertices[idx] = generate_vertices_for_indices(cells, &self.positions, &indices);
+    }
+
+    fn uncache_oldest(&mut self) {
+        if self.cached_indices.len() > MAX_CACHE_VBUFS {
+            let how_much_over = self.cached_indices.len() - MAX_CACHE_VBUFS;
+            let indices = self.cached_indices.drain(0..how_much_over);
+
+            for idx in indices {
+                self.vertex_buffers[idx] = None;
+                self.sector_vertices[idx] = vec![];
+            }
+        }
     }
 }
 
