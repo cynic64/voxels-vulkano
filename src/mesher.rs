@@ -1,5 +1,4 @@
 extern crate rayon;
-use rayon::prelude::*;
 
 #[derive(Copy, Clone, Debug)]
 pub struct Vertex {
@@ -51,8 +50,7 @@ struct Offset {
 
 pub struct VbufCache {
     sector_vertices: Vec<Vec<Vertex>>,
-    pub vertex_buffers:
-        Vec<Option<VertexBuffer>>,
+    pub vertex_buffers: Vec<Option<VertexBuffer>>,
     positions: Vec<(f32, f32, f32)>,
     chunked_indices: Vec<Vec<usize>>,
 }
@@ -68,15 +66,23 @@ impl VbufCache {
         let chunked_indices = generate_chunked_indices();
         println!("Done generating indices.");
 
+        let num_sectors = super::SIZE * super::SIZE * super::SIZE;
+        let sector_vertices = (0..num_sectors).map(|_| vec![]).collect();
+
         VbufCache {
-            sector_vertices: vec![],
-            vertex_buffers: vec![None; super::SIZE * super::SIZE * super::SIZE],
+            sector_vertices,
+            vertex_buffers: vec![None; num_sectors],
             positions,
             chunked_indices,
         }
     }
 
-    pub fn get_vbuf_at_idx(&mut self, idx: usize, device: &std::sync::Arc<vulkano::device::Device>) -> VertexBuffer {
+    pub fn get_vbuf_at_idx(
+        &mut self,
+        idx: usize,
+        cells: &[u8],
+        device: &std::sync::Arc<vulkano::device::Device>,
+    ) -> VertexBuffer {
         // the thing it returns is already cloned, don't worry :)
 
         // had to do the clone first to satisfy the borrow checker,
@@ -84,23 +90,21 @@ impl VbufCache {
         match self.vertex_buffers[idx].clone() {
             Some(vbuf) => vbuf,
             None => {
-                self.vertex_buffers[idx] = Some(self.generate_vbuf_for_idx(idx, device));
+                self.vertex_buffers[idx] = Some(self.generate_vbuf_for_idx(idx, device, cells));
                 self.vertex_buffers[idx].clone().unwrap()
             }
         }
     }
 
-    pub fn update_vertices(&mut self, cells: &[u8]) {
-        println!("update_vertices start...");
-        self.sector_vertices = self
-            .chunked_indices
-            .par_iter()
-            .map(|indices| generate_vertices_for_indices(cells, &self.positions, indices))
-            .collect();
-        println!("update_vertices done");
-    }
-
-    fn generate_vbuf_for_idx(&self, idx: usize, device: &std::sync::Arc<vulkano::device::Device>) -> VertexBuffer {
+    fn generate_vbuf_for_idx(
+        &mut self,
+        idx: usize,
+        device: &std::sync::Arc<vulkano::device::Device>,
+        cells: &[u8],
+    ) -> VertexBuffer {
+        if self.sector_vertices[idx].len() < 1 {
+            self.update_vertices_at_idx(idx, cells);
+        }
         let vertices = &self.sector_vertices[idx];
 
         vulkano::buffer::cpu_access::CpuAccessibleBuffer::from_iter(
@@ -109,6 +113,15 @@ impl VbufCache {
             vertices.iter().cloned(),
         )
         .expect("failed to create buffer")
+    }
+
+    fn update_vertices_at_idx(&mut self, idx: usize, cells: &[u8]) {
+        let indices = &self.chunked_indices[idx];
+        self.sector_vertices[idx] = generate_vertices_for_indices(
+            cells,
+            &self.positions,
+            &indices,
+        );
     }
 }
 

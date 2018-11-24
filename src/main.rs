@@ -87,7 +87,6 @@ fn main() {
     let queue = queues.next().unwrap();
 
     let mut vbuf_cache = mesher::VbufCache::new();
-    vbuf_cache.update_vertices(&ca.cells);
 
     let (mut swapchain, mut images) = {
         let caps = surface
@@ -361,7 +360,7 @@ fn main() {
                 .draw(
                     pipeline.clone(),
                     &dynamic_state,
-                    vbuf_cache.get_vbuf_at_idx(idx, &device.clone()),
+                    vbuf_cache.get_vbuf_at_idx(idx, &ca.cells, &device.clone()),
                     set.clone(),
                     (),
                 )
