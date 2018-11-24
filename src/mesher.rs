@@ -1,7 +1,8 @@
 extern crate rayon;
+use rayon::prelude::*;
 use std::collections::vec_deque::VecDeque;
 
-const MAX_CACHE_VBUFS: usize = 256;
+const MAX_CACHE_VBUFS: usize = 1024;
 
 #[derive(Copy, Clone, Debug)]
 pub struct Vertex {
@@ -148,7 +149,7 @@ fn generate_vertices_for_indices(
     indices: &[usize],
 ) -> Vec<Vertex> {
     indices
-        .iter()
+        .par_iter()
         .map(|&idx| generate_verts_for_cube(cells, idx, positions[idx]))
         .flatten()
         .collect()
