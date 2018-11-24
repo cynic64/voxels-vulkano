@@ -1,9 +1,17 @@
+extern crate rayon;
+use rayon::prelude::*;
+use std::collections::vec_deque::VecDeque;
+
+const MAX_CACHE_VBUFS: usize = 1024;
+
 #[derive(Copy, Clone, Debug)]
 pub struct Vertex {
     pub position: (f32, f32, f32),
     pub color: (f32, f32, f32, f32),
     pub normal: (f32, f32, f32),
 }
+
+type VertexBuffer = std::sync::Arc<vulkano::buffer::cpu_access::CpuAccessibleBuffer<[Vertex]>>;
 
 #[rustfmt::skip]
 const CUBE_CORNERS: [CubeCorner; 8] = [
@@ -44,40 +52,95 @@ struct Offset {
     front: i32,
 }
 
+pub struct VbufCache {
+    sector_vertices: Vec<Vec<Vertex>>,
+    pub vertex_buffers: Vec<Option<VertexBuffer>>,
+    positions: Vec<(f32, f32, f32)>,
+    chunked_indices: Vec<Vec<usize>>,
+    cached_indices: VecDeque<usize>,
+}
+
 use super::ca;
 use super::SIZE;
 
-pub fn get_chunked_vertex_buffers(
-    cells: &[u8],
-    positions: &[(f32, f32, f32)],
-    device: &std::sync::Arc<vulkano::device::Device>,
-) -> Vec<std::sync::Arc<vulkano::buffer::cpu_access::CpuAccessibleBuffer<[Vertex]>>> {
-    // create lists of indices...
-    let chunked_indices = generate_chunked_indices();
+impl VbufCache {
+    pub fn new() -> VbufCache {
+        println!("VbufCache initialized...");
+        let positions = generate_positions();
+        println!("Done generating positions.");
+        let chunked_indices = generate_chunked_indices();
+        println!("Done generating indices.");
 
-    let mut vertex_buffers = Vec::new();
+        let num_sectors = super::SIZE * super::SIZE * super::SIZE;
+        let sector_vertices = (0..num_sectors).map(|_| vec![]).collect();
 
-    for indices in chunked_indices.iter() {
-        let vbuf = update_vbuf(cells, positions, device, indices);
-        vertex_buffers.push(vbuf);
+        VbufCache {
+            sector_vertices,
+            vertex_buffers: vec![None; num_sectors],
+            positions,
+            chunked_indices,
+            cached_indices: VecDeque::new(),
+        }
     }
 
-    vertex_buffers
-}
+    pub fn get_vbuf_at_idx(
+        &mut self,
+        idx: usize,
+        cells: &[u8],
+        device: &std::sync::Arc<vulkano::device::Device>,
+    ) -> VertexBuffer {
+        // the thing it returns is already cloned, don't worry :)
 
-fn update_vbuf(
-    cells: &[u8],
-    positions: &[(f32, f32, f32)],
-    device: &std::sync::Arc<vulkano::device::Device>,
-    indices: &[usize],
-) -> std::sync::Arc<vulkano::buffer::cpu_access::CpuAccessibleBuffer<[Vertex]>> {
-    let vertices = generate_vertices_for_indices(cells, positions, indices);
-    vulkano::buffer::cpu_access::CpuAccessibleBuffer::from_iter(
-        device.clone(),
-        vulkano::buffer::BufferUsage::vertex_buffer(),
-        vertices.iter().cloned(),
-    )
-    .expect("failed to create buffer")
+        // maybe move this somewhere less often called? :P
+        self.uncache_oldest();
+
+        // had to do the clone first to satisfy the borrow checker,
+        // hopefully that doesn't cause problems :/
+        match self.vertex_buffers[idx].clone() {
+            Some(vbuf) => vbuf,
+            None => {
+                self.vertex_buffers[idx] = Some(self.generate_vbuf_for_idx(idx, device, cells));
+                self.vertex_buffers[idx].clone().unwrap()
+            }
+        }
+    }
+
+    fn generate_vbuf_for_idx(
+        &mut self,
+        idx: usize,
+        device: &std::sync::Arc<vulkano::device::Device>,
+        cells: &[u8],
+    ) -> VertexBuffer {
+        if self.sector_vertices[idx].len() < 1 {
+            self.update_vertices_at_idx(idx, cells);
+        }
+        let vertices = &self.sector_vertices[idx];
+        self.cached_indices.push_back(idx);
+
+        vulkano::buffer::cpu_access::CpuAccessibleBuffer::from_iter(
+            device.clone(),
+            vulkano::buffer::BufferUsage::vertex_buffer(),
+            vertices.iter().cloned(),
+        )
+        .expect("failed to create buffer")
+    }
+
+    fn update_vertices_at_idx(&mut self, idx: usize, cells: &[u8]) {
+        let indices = &self.chunked_indices[idx];
+        self.sector_vertices[idx] = generate_vertices_for_indices(cells, &self.positions, &indices);
+    }
+
+    fn uncache_oldest(&mut self) {
+        if self.cached_indices.len() > MAX_CACHE_VBUFS {
+            let how_much_over = self.cached_indices.len() - MAX_CACHE_VBUFS;
+            let indices = self.cached_indices.drain(0..how_much_over);
+
+            for idx in indices {
+                self.vertex_buffers[idx] = None;
+                self.sector_vertices[idx] = vec![];
+            }
+        }
+    }
 }
 
 fn generate_vertices_for_indices(
@@ -86,7 +149,7 @@ fn generate_vertices_for_indices(
     indices: &[usize],
 ) -> Vec<Vertex> {
     indices
-        .iter()
+        .par_iter()
         .map(|&idx| generate_verts_for_cube(cells, idx, positions[idx]))
         .flatten()
         .collect()
@@ -151,22 +214,6 @@ fn get_value_of_vertex(cells: &[u8], base_idx: usize, offsets: &[Offset]) -> f32
     1.0 - (neighbor_count as f32 / 13.0)
 }
 
-pub fn generate_positions() -> Vec<(f32, f32, f32)> {
-    (0..SIZE)
-        .map(|y| {
-            (0..SIZE)
-                .map(|z| {
-                    (0..SIZE)
-                        .map(|x| (x as f32, y as f32, z as f32))
-                        .collect::<Vec<_>>()
-                })
-                .collect::<Vec<_>>()
-        })
-        .flatten()
-        .flatten()
-        .collect()
-}
-
 fn generate_chunked_indices() -> Vec<Vec<usize>> {
     use super::SECTOR_SIDE_LEN;
     use super::SIZE;
@@ -209,6 +256,22 @@ fn xyz_to_linear(x: usize, y: usize, z: usize) -> usize {
     // uses [z][y][x]
     use super::SIZE;
     z * SIZE * SIZE + y * SIZE + x
+}
+
+fn generate_positions() -> Vec<(f32, f32, f32)> {
+    (0..SIZE)
+        .map(|y| {
+            (0..SIZE)
+                .map(|z| {
+                    (0..SIZE)
+                        .map(|x| (x as f32, y as f32, z as f32))
+                        .collect::<Vec<_>>()
+                })
+                .collect::<Vec<_>>()
+        })
+        .flatten()
+        .flatten()
+        .collect()
 }
 
 impl Offset {

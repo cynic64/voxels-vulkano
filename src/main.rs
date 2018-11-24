@@ -34,13 +34,12 @@ use vulkano_win::VkSurfaceBuild;
 
 use std::sync::Arc;
 
-const SIZE: usize = 256;
-const SECTOR_SIDE_LEN: usize = 32;
+const SIZE: usize = 512;
+const SECTOR_SIDE_LEN: usize = 16;
 
 impl_vertex!(Vertex, position, color, normal);
 
 fn main() {
-    let positions = mesher::generate_positions();
     let ca = setup_ca();
     let mut cam = camera::Camera::default();
 
@@ -86,6 +85,8 @@ fn main() {
     )
     .expect("failed to create device");
     let queue = queues.next().unwrap();
+
+    let mut vbuf_cache = mesher::VbufCache::new();
 
     let caps = surface
         .capabilities(physical)
@@ -153,7 +154,6 @@ fn main() {
         100_000_000.,
     );
 
-    let meshes = mesher::get_chunked_vertex_buffers(&ca.cells, &positions, &device.clone());
     let uniform_buffer = vulkano::buffer::cpu_pool::CpuBufferPool::<vs::ty::Data>::new(
         device.clone(),
         vulkano::buffer::BufferUsage::all(),
@@ -411,7 +411,7 @@ fn main() {
                 .draw(
                     pipeline.clone(),
                     &dynamic_state,
-                    meshes[idx].clone(),
+                    vbuf_cache.get_vbuf_at_idx(idx, &ca.cells, &device.clone()),
                     set.clone(),
                     (),
                 )
@@ -596,12 +596,14 @@ pub fn get_elapsed(start: std::time::Instant) -> f32 {
 }
 
 fn setup_ca() -> ca::CellA {
+    let start = std::time::Instant::now();
     let mut ca = ca::CellA::new(SIZE, 13, 26, 14, 26);
     ca.randomize();
     for _ in 0..20 {
         ca.next_gen()
     }
 
+    println!("CA generations took: {}", get_elapsed(start));
     ca
 }
 
