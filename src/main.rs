@@ -362,7 +362,7 @@ fn main() {
                 .draw(
                     pipeline.clone(),
                     &dynamic_state,
-                    vbuf_cache.vertex_buffers[idx].clone(),
+                    vbuf_cache.get_vbuf_at_idx(idx),
                     set.clone(),
                     (),
                 )

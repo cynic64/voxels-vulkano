@@ -8,6 +8,8 @@ pub struct Vertex {
     pub normal: (f32, f32, f32),
 }
 
+type VertexBuffer = std::sync::Arc<vulkano::buffer::cpu_access::CpuAccessibleBuffer<[Vertex]>>;
+
 #[rustfmt::skip]
 const CUBE_CORNERS: [CubeCorner; 8] = [
     CubeCorner { position: (-0.5, -0.5, -0.5), neighbors: [Offset { right: -1, up: -1, front: -1},   Offset { right: -1, up: -1, front:  0},   Offset { right: -1, up:  0, front: -1},   Offset { right: -1, up:  0, front:  0},  Offset { right:  0, up: -1, front: -1},    Offset { right:  0, up: -1, front:  0},   Offset { right:  0, up:  0, front: -1},  Offset { right:  0, up:  0, front:  0} ] },
@@ -50,7 +52,7 @@ struct Offset {
 pub struct VbufCache {
     sector_vertices: Vec<Vec<Vertex>>,
     pub vertex_buffers:
-        Vec<std::sync::Arc<vulkano::buffer::cpu_access::CpuAccessibleBuffer<[Vertex]>>>,
+        Vec<Option<VertexBuffer>>,
     positions: Vec<(f32, f32, f32)>,
     chunked_indices: Vec<Vec<usize>>,
 }
@@ -71,6 +73,14 @@ impl VbufCache {
         }
     }
 
+    pub fn get_vbuf_at_idx(&self, idx: usize) -> VertexBuffer {
+        // the thing it returns is already cloned, don't worry :)
+
+        // had to do the clone first to satisfy the borrow checker,
+        // hopefully that doesn't cause problems :/
+        self.vertex_buffers[idx].clone().unwrap()
+    }
+
     pub fn update_vertices(&mut self, cells: &[u8]) {
         self.sector_vertices = self
             .chunked_indices
@@ -84,12 +94,14 @@ impl VbufCache {
             .sector_vertices
             .par_iter()
             .map(|vertices| {
-                vulkano::buffer::cpu_access::CpuAccessibleBuffer::from_iter(
-                    device.clone(),
-                    vulkano::buffer::BufferUsage::vertex_buffer(),
-                    vertices.iter().cloned(),
+                Some(
+                    vulkano::buffer::cpu_access::CpuAccessibleBuffer::from_iter(
+                        device.clone(),
+                        vulkano::buffer::BufferUsage::vertex_buffer(),
+                        vertices.iter().cloned(),
+                    )
+                    .expect("failed to create buffer")
                 )
-                .expect("failed to create buffer")
             })
             .collect();
     }
