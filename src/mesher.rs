@@ -62,48 +62,53 @@ use super::SIZE;
 
 impl VbufCache {
     pub fn new() -> VbufCache {
+        println!("VbufCache initialized...");
         let positions = generate_positions();
+        println!("Done generating positions.");
         let chunked_indices = generate_chunked_indices();
+        println!("Done generating indices.");
 
         VbufCache {
             sector_vertices: vec![],
-            vertex_buffers: vec![],
+            vertex_buffers: vec![None; super::SIZE * super::SIZE * super::SIZE],
             positions,
             chunked_indices,
         }
     }
 
-    pub fn get_vbuf_at_idx(&self, idx: usize) -> VertexBuffer {
+    pub fn get_vbuf_at_idx(&mut self, idx: usize, device: &std::sync::Arc<vulkano::device::Device>) -> VertexBuffer {
         // the thing it returns is already cloned, don't worry :)
 
         // had to do the clone first to satisfy the borrow checker,
         // hopefully that doesn't cause problems :/
-        self.vertex_buffers[idx].clone().unwrap()
+        match self.vertex_buffers[idx].clone() {
+            Some(vbuf) => vbuf,
+            None => {
+                self.vertex_buffers[idx] = Some(self.generate_vbuf_for_idx(idx, device));
+                self.vertex_buffers[idx].clone().unwrap()
+            }
+        }
     }
 
     pub fn update_vertices(&mut self, cells: &[u8]) {
+        println!("update_vertices start...");
         self.sector_vertices = self
             .chunked_indices
             .par_iter()
             .map(|indices| generate_vertices_for_indices(cells, &self.positions, indices))
             .collect();
+        println!("update_vertices done");
     }
 
-    pub fn generate_all_vbufs(&mut self, device: &std::sync::Arc<vulkano::device::Device>) {
-        self.vertex_buffers = self
-            .sector_vertices
-            .par_iter()
-            .map(|vertices| {
-                Some(
-                    vulkano::buffer::cpu_access::CpuAccessibleBuffer::from_iter(
-                        device.clone(),
-                        vulkano::buffer::BufferUsage::vertex_buffer(),
-                        vertices.iter().cloned(),
-                    )
-                    .expect("failed to create buffer")
-                )
-            })
-            .collect();
+    fn generate_vbuf_for_idx(&self, idx: usize, device: &std::sync::Arc<vulkano::device::Device>) -> VertexBuffer {
+        let vertices = &self.sector_vertices[idx];
+
+        vulkano::buffer::cpu_access::CpuAccessibleBuffer::from_iter(
+            device.clone(),
+            vulkano::buffer::BufferUsage::vertex_buffer(),
+            vertices.iter().cloned(),
+        )
+        .expect("failed to create buffer")
     }
 }
 

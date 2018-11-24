@@ -34,7 +34,7 @@ use vulkano_win::VkSurfaceBuild;
 
 use std::sync::Arc;
 
-const SIZE: usize = 256;
+const SIZE: usize = 512;
 const SECTOR_SIDE_LEN: usize = 32;
 
 impl_vertex!(Vertex, position, color, normal);
@@ -88,7 +88,6 @@ fn main() {
 
     let mut vbuf_cache = mesher::VbufCache::new();
     vbuf_cache.update_vertices(&ca.cells);
-    vbuf_cache.generate_all_vbufs(&device);
 
     let (mut swapchain, mut images) = {
         let caps = surface
@@ -362,7 +361,7 @@ fn main() {
                 .draw(
                     pipeline.clone(),
                     &dynamic_state,
-                    vbuf_cache.get_vbuf_at_idx(idx),
+                    vbuf_cache.get_vbuf_at_idx(idx, &device.clone()),
                     set.clone(),
                     (),
                 )
