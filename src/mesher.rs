@@ -115,7 +115,7 @@ impl VbufCache {
         device: &std::sync::Arc<vulkano::device::Device>,
         cells: &[u8],
     ) -> VertexBuffer {
-        if self.sector_vertices[idx].len() < 1 {
+        if self.sector_vertices[idx].is_empty() {
             self.update_vertices_at_idx(idx, cells);
         }
         let vertices = &self.sector_vertices[idx];
