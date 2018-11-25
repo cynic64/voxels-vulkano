@@ -122,13 +122,14 @@ fn main() {
 
     let mut draw_text = DrawText::new(device.clone(), queue.clone(), swapchain.clone(), &images);
 
-    let mut multisampled_color = vulkano::image::attachment::AttachmentImage::transient_multisampled(
-        device.clone(),
-        caps.current_extent.unwrap_or([1024, 768]),
-        4,
-        caps.supported_formats[0].0,
-    )
-    .unwrap();
+    let mut multisampled_color =
+        vulkano::image::attachment::AttachmentImage::transient_multisampled(
+            device.clone(),
+            caps.current_extent.unwrap_or([1024, 768]),
+            4,
+            caps.supported_formats[0].0,
+        )
+        .unwrap();
 
     let mut depth_buffer = vulkano::image::attachment::AttachmentImage::transient(
         device.clone(),
@@ -137,13 +138,14 @@ fn main() {
     )
     .unwrap();
 
-    let mut multisampled_depth = vulkano::image::attachment::AttachmentImage::transient_multisampled(
-        device.clone(),
-        dimensions,
-        4,
-        vulkano::format::D16Unorm,
-    )
-    .unwrap();
+    let mut multisampled_depth =
+        vulkano::image::attachment::AttachmentImage::transient_multisampled(
+            device.clone(),
+            dimensions,
+            4,
+            vulkano::format::D16Unorm,
+        )
+        .unwrap();
 
     // mvp
     let model = glm::scale(&glm::Mat4::identity(), &glm::vec3(1.0, 1.0, 1.0));
@@ -258,9 +260,30 @@ fn main() {
         last_frame = std::time::Instant::now();
 
         // add some info :)
-        draw_text.queue_text(200.0, 50.0, 20.0, [1.0, 1.0, 1.0, 1.0], &format!("FPS: {}", 1.0 / delta));
-        draw_text.queue_text(200.0, 70.0, 20.0, [1.0, 1.0, 1.0, 1.0], &format!("Cached vbufs: {}", vbuf_cache.get_num_cached_vbufs()));
-        draw_text.queue_text(200.0, 90.0, 20.0, [1.0, 1.0, 1.0, 1.0], &format!("x: {}, y: {}, z: {}", cam.position.x, cam.position.y, cam.position.z));
+        draw_text.queue_text(
+            200.0,
+            50.0,
+            20.0,
+            [1.0, 1.0, 1.0, 1.0],
+            &format!("FPS: {}", 1.0 / delta),
+        );
+        draw_text.queue_text(
+            200.0,
+            70.0,
+            20.0,
+            [1.0, 1.0, 1.0, 1.0],
+            &format!("Cached vbufs: {}", vbuf_cache.get_num_cached_vbufs()),
+        );
+        draw_text.queue_text(
+            200.0,
+            90.0,
+            20.0,
+            [1.0, 1.0, 1.0, 1.0],
+            &format!(
+                "x: {}, y: {}, z: {}",
+                cam.position.x, cam.position.y, cam.position.z
+            ),
+        );
 
         previous_frame.cleanup_finished();
 
@@ -271,21 +294,23 @@ fn main() {
                 .current_extent
                 .unwrap_or([1024, 768]);
 
-            multisampled_color = vulkano::image::attachment::AttachmentImage::transient_multisampled(
-                device.clone(),
-                dimensions,
-                4,
-                caps.supported_formats[0].0,
-            )
-            .unwrap();
+            multisampled_color =
+                vulkano::image::attachment::AttachmentImage::transient_multisampled(
+                    device.clone(),
+                    dimensions,
+                    4,
+                    caps.supported_formats[0].0,
+                )
+                .unwrap();
 
-            multisampled_depth = vulkano::image::attachment::AttachmentImage::transient_multisampled(
-                device.clone(),
-                dimensions,
-                4,
-                vulkano::format::D16Unorm,
-            )
-            .unwrap();
+            multisampled_depth =
+                vulkano::image::attachment::AttachmentImage::transient_multisampled(
+                    device.clone(),
+                    dimensions,
+                    4,
+                    vulkano::format::D16Unorm,
+                )
+                .unwrap();
 
             let (new_swapchain, new_images) = match swapchain.recreate_with_dimension(dimensions) {
                 Ok(r) => r,
@@ -414,7 +439,12 @@ fn main() {
             .begin_render_pass(
                 framebuffers.as_ref().unwrap()[image_num].clone(),
                 false,
-                vec![[0.2, 0.2, 0.2, 1.0].into(), [0.2, 0.2, 0.2, 1.0].into(), 1f32.into(), vulkano::format::ClearValue::None],
+                vec![
+                    [0.2, 0.2, 0.2, 1.0].into(),
+                    [0.2, 0.2, 0.2, 1.0].into(),
+                    1f32.into(),
+                    vulkano::format::ClearValue::None,
+                ],
             )
             .unwrap();
 
