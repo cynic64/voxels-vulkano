@@ -141,9 +141,9 @@ pub fn get_near_mesh_indices(camera_position: &Vec3, camera_front: &Vec3) -> Vec
     let mut base_y = ((camera_position.z as usize) / SECTOR_SIDE_LEN) as i32;
     let mut base_z = ((camera_position.y as usize) / SECTOR_SIDE_LEN) as i32;
 
-    base_x += round(camera_front.x);
-    base_y += round(camera_front.z);
-    base_z += round(camera_front.y);
+    base_x += camera_front.x.round() as i32;
+    base_y += camera_front.z.round() as i32;
+    base_z += camera_front.y.round() as i32;
 
     // again, the conversion from usize to i32 is kinda shitty :/
     let mut indices = Vec::new();
@@ -158,17 +158,4 @@ pub fn get_near_mesh_indices(camera_position: &Vec3, camera_front: &Vec3) -> Vec
     }
 
     indices
-}
-
-fn round(x: f32) -> i32 {
-    // idk if there is a std function for this
-    if x >= -0.5 && x <= 0.5 {
-        0
-    } else if x < -0.5 {
-        -2
-    } else if x > 0.5 {
-        2
-    } else {
-        panic!("This shouldn't happen (round)");
-    }
 }
