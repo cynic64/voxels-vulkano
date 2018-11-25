@@ -37,7 +37,7 @@ use vulkano_win::VkSurfaceBuild;
 
 use std::sync::Arc;
 
-const SIZE: usize = 512;
+const SIZE: usize = 256;
 const SECTOR_SIDE_LEN: usize = 16;
 
 impl_vertex!(Vertex, position, color, normal);
@@ -642,7 +642,8 @@ fn setup_ca() -> ca::CellA {
     let start = std::time::Instant::now();
     let mut ca = ca::CellA::new(SIZE, 13, 26, 14, 26);
     ca.randomize();
-    for _ in 0..20 {
+    for i in 0..100 {
+        println!("gen: {}", i);
         ca.next_gen()
     }
 
