@@ -105,6 +105,10 @@ impl VbufCache {
         }
     }
 
+    pub fn get_num_cached_vbufs(&self) -> usize {
+        self.cached_indices.len()
+    }
+
     fn generate_vbuf_for_idx(
         &mut self,
         idx: usize,
