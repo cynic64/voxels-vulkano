@@ -21,6 +21,9 @@ use winit::{
     ElementState, Event, EventsLoop, KeyboardInput, VirtualKeyCode, WindowBuilder, WindowEvent,
 };
 
+extern crate vulkano_text;
+use vulkano_text::{DrawText, DrawTextTrait};
+
 // my stuff
 mod ca;
 mod camera;
@@ -116,6 +119,8 @@ fn main() {
         )
         .expect("failed to create swapchain")
     };
+
+    let mut draw_text = DrawText::new(device.clone(), queue.clone(), swapchain.clone(), &images);
 
     let mut multisampled_color = vulkano::image::attachment::AttachmentImage::transient_multisampled(
         device.clone(),
@@ -252,6 +257,9 @@ fn main() {
         let delta = get_elapsed(last_frame);
         last_frame = std::time::Instant::now();
 
+        // add some info :)
+        draw_text.queue_text(200.0, 50.0, 20.0, [1.0, 1.0, 1.0, 1.0], &format!("FPS: {}", 1.0 / delta));
+
         previous_frame.cleanup_finished();
 
         if recreate_swapchain {
@@ -313,6 +321,8 @@ fn main() {
                 dimensions: [dimensions[0] as f32, dimensions[1] as f32],
                 depth_range: 0.0..1.0,
             }]);
+
+            draw_text = DrawText::new(device.clone(), queue.clone(), swapchain.clone(), &images);
 
             recreate_swapchain = false;
         }
@@ -420,6 +430,7 @@ fn main() {
         let command_buffer = command_buffer_incomplete
             .end_render_pass()
             .unwrap()
+            .draw_text(&mut draw_text, image_num)
             .build()
             .unwrap();
         // done
