@@ -260,6 +260,7 @@ fn main() {
         // add some info :)
         draw_text.queue_text(200.0, 50.0, 20.0, [1.0, 1.0, 1.0, 1.0], &format!("FPS: {}", 1.0 / delta));
         draw_text.queue_text(200.0, 70.0, 20.0, [1.0, 1.0, 1.0, 1.0], &format!("Cached vbufs: {}", vbuf_cache.get_num_cached_vbufs()));
+        draw_text.queue_text(200.0, 90.0, 20.0, [1.0, 1.0, 1.0, 1.0], &format!("x: {}, y: {}, z: {}", cam.position.x, cam.position.y, cam.position.z));
 
         previous_frame.cleanup_finished();
 
