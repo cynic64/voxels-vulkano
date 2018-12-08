@@ -37,8 +37,8 @@ use vulkano_win::VkSurfaceBuild;
 
 use std::sync::Arc;
 
-const SIZE: usize = 256;
-const SECTOR_SIDE_LEN: usize = 16;
+const SIZE: usize = 384;
+const SECTOR_SIDE_LEN: usize = 24;
 
 impl_vertex!(Vertex, position, color, normal);
 
@@ -266,8 +266,12 @@ fn main() {
 
     loop {
         // getting data from the previously spawned thread, maybe
-        if recv.try_recv().is_ok() {
-            println!("hello!");
+        {
+            let result = recv.try_recv();
+            if result.is_ok() {
+                let message = result.unwrap();
+                println!("{}", message);
+            }
         }
 
         let delta = get_elapsed(last_frame);
@@ -656,7 +660,7 @@ fn setup_ca() -> ca::CellA {
     let start = std::time::Instant::now();
     let mut ca = ca::CellA::new(SIZE, 13, 26, 14, 26);
     ca.randomize();
-    for i in 0..100 {
+    for i in 0..20 {
         println!("gen: {}", i);
         ca.next_gen()
     }
