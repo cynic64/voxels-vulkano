@@ -255,7 +255,21 @@ fn main() {
     let first_frame = std::time::Instant::now();
     let mut visible_meshes;
 
+    let (trans, recv) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+                      let tx = trans.clone();
+                      loop {
+                          tx.send(format!("hello!, {}", rand::random::<u8>())).unwrap();
+                          std::thread::sleep(std::time::Duration::from_secs(1));
+                      }
+    });
+
     loop {
+        // getting data from the previously spawned thread, maybe
+        if recv.try_recv().is_ok() {
+            println!("hello!");
+        }
+
         let delta = get_elapsed(last_frame);
         last_frame = std::time::Instant::now();
 
