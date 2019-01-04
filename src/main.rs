@@ -253,33 +253,55 @@ fn main() {
     };
     let mut last_frame = std::time::Instant::now();
     let first_frame = std::time::Instant::now();
-    // let mut visible_meshes;
 
-    let (trans, recv) = std::sync::mpsc::channel();
+    // there are 2 channels: one for the vbuf-ing thread to send the created buffers along,
+    // and another for the main thread to send the vbuf-ing thread the position of the camera.
+    let (vertex_trans, vertex_recv) = std::sync::mpsc::channel();
+    let (camera_pos_trans, camera_pos_recv) = std::sync::mpsc::channel();
 
     // closure borrow checking sucks :/
     let cloned_dev = device.clone();
     std::thread::spawn(move || {
-                      // ownership of vbuf_cache is moved here
-                      let tx = trans.clone();
-                      loop {
-                          // build a random mesh and send it
-                          tx.send(
-                              vbuf_cache.get_vbuf_at_idx(rand::random::<usize>() % 100, &ca.cells, &cloned_dev)
-                          ).unwrap();;
-                          std::thread::sleep(std::time::Duration::from_secs(1));
-                      }
+                        // ownership of vbuf_cache and camera_pos_recv is moved here
+                        let tx = vertex_trans.clone();
+
+                        // should this be here?
+                        let mut visible_indices = vec![0];
+
+                        loop {
+                            // build all vertex buffers and send them
+                            let vertex_buffers = visible_indices
+                                .iter()
+                                .map(|&idx| vbuf_cache.get_vbuf_at_idx(idx, &ca.cells, &cloned_dev))
+                                .collect::<Vec<_>>();
+                            tx.send(vertex_buffers).unwrap();
+
+                            // check for new info on the camera position
+                            let result = camera_pos_recv.try_recv();
+                            if result.is_ok() {
+                                println!("Got cam info!");
+                                // if there is new info, update visible indices
+                                let (cam_pos, cam_front) = result.unwrap();
+                                visible_indices = sector::get_near_mesh_indices(&cam_pos, &cam_front);
+                            }
+
+                            // wait
+                            std::thread::sleep(std::time::Duration::from_secs(1));
+                        }
     });
 
     let mut vertex_buffers = vec![];
 
     loop {
-        // getting data from the previously spawned thread, maybe
+        // if the vbuf-ing thread has sent any new vertex buffers, replace the old ones
+        // also send back some info on the camera
         {
-            let result = recv.try_recv();
+            let result = vertex_recv.try_recv();
             if result.is_ok() {
-                let vbuf = result.unwrap();
-                vertex_buffers.push(vbuf);
+                vertex_buffers = result.unwrap();
+
+                let camera_info = (cam.position, cam.front);
+                camera_pos_trans.send(camera_info).unwrap();
             }
         }
 
@@ -294,6 +316,8 @@ fn main() {
             [1.0, 1.0, 1.0, 1.0],
             &format!("FPS: {}", 1.0 / delta),
         );
+
+        // commented because we don't own vbuf_cache anymore :(
         // draw_text.queue_text(
         //     200.0,
         //     70.0,
