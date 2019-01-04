@@ -37,8 +37,8 @@ use vulkano_win::VkSurfaceBuild;
 
 use std::sync::Arc;
 
-const SIZE: usize = 384;
-const SECTOR_SIDE_LEN: usize = 24;
+const SIZE: usize = 256;
+const SECTOR_SIDE_LEN: usize = 16;
 
 impl_vertex!(Vertex, position, color, normal);
 
@@ -286,7 +286,7 @@ fn main() {
                             }
 
                             // wait
-                            std::thread::sleep(std::time::Duration::from_secs(1));
+                            std::thread::sleep(std::time::Duration::from_millis(500));
                         }
     });
 
