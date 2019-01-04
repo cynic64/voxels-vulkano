@@ -253,24 +253,33 @@ fn main() {
     };
     let mut last_frame = std::time::Instant::now();
     let first_frame = std::time::Instant::now();
-    let mut visible_meshes;
+    // let mut visible_meshes;
 
     let (trans, recv) = std::sync::mpsc::channel();
+
+    // closure borrow checking sucks :/
+    let cloned_dev = device.clone();
     std::thread::spawn(move || {
+                      // ownership of vbuf_cache is moved here
                       let tx = trans.clone();
                       loop {
-                          tx.send(format!("hello!, {}", rand::random::<u8>())).unwrap();
+                          // build a random mesh and send it
+                          tx.send(
+                              vbuf_cache.get_vbuf_at_idx(rand::random::<usize>() % 100, &ca.cells, &cloned_dev)
+                          ).unwrap();;
                           std::thread::sleep(std::time::Duration::from_secs(1));
                       }
     });
+
+    let mut vertex_buffers = vec![];
 
     loop {
         // getting data from the previously spawned thread, maybe
         {
             let result = recv.try_recv();
             if result.is_ok() {
-                let message = result.unwrap();
-                println!("{}", message);
+                let vbuf = result.unwrap();
+                vertex_buffers.push(vbuf);
             }
         }
 
@@ -285,13 +294,13 @@ fn main() {
             [1.0, 1.0, 1.0, 1.0],
             &format!("FPS: {}", 1.0 / delta),
         );
-        draw_text.queue_text(
-            200.0,
-            70.0,
-            20.0,
-            [1.0, 1.0, 1.0, 1.0],
-            &format!("Cached vbufs: {}", vbuf_cache.get_num_cached_vbufs()),
-        );
+        // draw_text.queue_text(
+        //     200.0,
+        //     70.0,
+        //     20.0,
+        //     [1.0, 1.0, 1.0, 1.0],
+        //     &format!("Cached vbufs: {}", vbuf_cache.get_num_cached_vbufs()),
+        // );
         draw_text.queue_text(
             200.0,
             90.0,
@@ -414,7 +423,6 @@ fn main() {
         }
 
         view = cam.get_view_matrix().into();
-        visible_meshes = sector::get_near_mesh_indices(&cam.position, &cam.front);
 
         let uniform_buffer_subbuffer = {
             let uniform_data = vs::ty::Data {
@@ -466,12 +474,14 @@ fn main() {
             )
             .unwrap();
 
-        for &idx in visible_meshes.iter() {
+        // visible_meshes = sector::get_near_mesh_indices(&cam.position, &cam.front);
+        // vbuf_cache.get_vbuf_at_idx(idx, &ca.cells, &device.clone()),
+        for vbuf in vertex_buffers.iter() {
             command_buffer_incomplete = command_buffer_incomplete
                 .draw(
                     pipeline.clone(),
                     &dynamic_state,
-                    vbuf_cache.get_vbuf_at_idx(idx, &ca.cells, &device.clone()),
+                    vbuf.clone(),
                     set.clone(),
                     (),
                 )
