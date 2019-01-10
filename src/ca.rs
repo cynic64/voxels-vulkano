@@ -1,84 +1,61 @@
 extern crate rand;
 extern crate rayon;
-use self::rayon::prelude::*;
 
 pub struct CellA {
     pub cells: Vec<u8>,
     size: usize,
-    min_surv: u8,
-    max_surv: u8,
-    min_birth: u8,
-    max_birth: u8,
-    max_age: u8,
+    lower_lim: usize,
+    upper_lim: usize,
 }
 
 impl CellA {
-    pub fn new(
-        size: usize,
-        min_surv: u8,
-        max_surv: u8,
-        min_birth: u8,
-        max_birth: u8,
-    ) -> Self {
+    pub fn new(size: usize) -> Self {
         let cells = vec![0; size * size * size];
-        let max_age = 1;
+
+        // upper and lower limit for indices so that counting neighbors doesn't explode
+        let lower_lim = size * size + size + 1;
+        let upper_lim = size * size * size - lower_lim;
 
         Self {
             cells,
             size,
-            min_surv,
-            max_surv,
-            min_birth,
-            max_birth,
-            max_age,
+            upper_lim,
+            lower_lim,
         }
     }
 
-    pub fn randomize(&mut self) {
-        let cells = (0..self.size * self.size * self.size)
-            .map(|_| if rand::random() { 1 } else { 0 })
-            .collect();
+    pub fn compute(&mut self) {
+        let w = 2.0;
+        let base_coef = w / (2.0 * std::f32::consts::PI);
 
-        self.cells = cells;
-    }
+        // borrow checker sucks!
+        let s = self.size;
+        let ll = self.lower_lim;
+        let ul = self.upper_lim;
+        self.cells = (0..s)
+            .map(move |z| {
+                (0..s).map(move |y| {
+                    (0..s).map(move |x| {
+                        let idx = z * s * s + y * s + x;
+                        let within_bounds = idx > ll && idx < ul;
+                        let coef = base_coef * (((z + 1) / (s / 2)) as f32);
 
-    pub fn next_gen(&mut self) {
-        let new_cells = (0..self.size * self.size * self.size)
-            .into_par_iter()
-            .map(|idx| {
-                if (idx > self.size * self.size + self.size)
-                    && (idx
-                        < (self.size * self.size * self.size)
-                            - (self.size * self.size)
-                            - self.size
-                            - 1)
-                {
-                    let cur_state = self.cells[idx];
-                    let count = count_neighbors(&self.cells, idx);
-
-                    if cur_state > 0 {
-                        if count >= self.min_surv && count <= self.max_surv {
-                            let new_state = cur_state + 1;
-                            if new_state > self.max_age {
-                                self.max_age
-                            } else {
-                                new_state
-                            }
+                        if (x as f32 * coef).sin()
+                            + (y as f32 * coef).sin()
+                            + (z as f32 * coef).sin()
+                            > 0.0
+                            && within_bounds
+                        {
+                            1
                         } else {
                             0
                         }
-                    } else if count >= self.min_birth && count <= self.max_birth {
-                        1
-                    } else {
-                        0
-                    }
-                } else {
-                    0
-                }
+                    })
+                })
             })
-            .collect();
-
-        self.cells = new_cells;
+            .flatten()
+            .flatten()
+            .collect::<Vec<_>>();
     }
 }
 

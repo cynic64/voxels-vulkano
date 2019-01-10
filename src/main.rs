@@ -262,35 +262,36 @@ fn main() {
     // closure borrow checking sucks :/
     let cloned_dev = device.clone();
     std::thread::spawn(move || {
-                        // ownership of vbuf_cache and camera_pos_recv is moved here
-                        let tx = vertex_trans.clone();
+        // ownership of vbuf_cache and camera_pos_recv is moved here
+        let tx = vertex_trans.clone();
 
-                        // should this be here?
-                        let mut visible_indices = vec![0];
+        // should this be here?
+        let mut visible_indices = vec![0];
 
-                        loop {
-                            // build all vertex buffers and send them
-                            let vertex_buffers = visible_indices
-                                .iter()
-                                .map(|&idx| vbuf_cache.get_vbuf_at_idx(idx, &ca.cells, &cloned_dev))
-                                .collect::<Vec<_>>();
-                            tx.send(vertex_buffers).unwrap();
+        loop {
+            // build all vertex buffers and send them
+            let vertex_buffers = visible_indices
+                .iter()
+                .map(|&idx| vbuf_cache.get_vbuf_at_idx(idx, &ca.cells, &cloned_dev))
+                .collect::<Vec<_>>();
+            tx.send((vbuf_cache.get_num_cached_vbufs(), vertex_buffers))
+                .unwrap();
 
-                            // check for new info on the camera position
-                            let result = camera_pos_recv.try_recv();
-                            if result.is_ok() {
-                                println!("Got cam info!");
-                                // if there is new info, update visible indices
-                                let (cam_pos, cam_front) = result.unwrap();
-                                visible_indices = sector::get_near_mesh_indices(&cam_pos, &cam_front);
-                            }
+            // check for new info on the camera position
+            let result = camera_pos_recv.try_recv();
+            if result.is_ok() {
+                // if there is new info, update visible indices
+                let (cam_pos, cam_front) = result.unwrap();
+                visible_indices = sector::get_near_mesh_indices(&cam_pos, &cam_front);
+            }
 
-                            // wait
-                            std::thread::sleep(std::time::Duration::from_millis(500));
-                        }
+            // wait
+            std::thread::sleep(std::time::Duration::from_millis(500));
+        }
     });
 
     let mut vertex_buffers = vec![];
+    let mut cached_vbufs = 0;
 
     loop {
         // if the vbuf-ing thread has sent any new vertex buffers, replace the old ones
@@ -298,7 +299,9 @@ fn main() {
         {
             let result = vertex_recv.try_recv();
             if result.is_ok() {
-                vertex_buffers = result.unwrap();
+                let res = result.unwrap();
+                cached_vbufs = res.0;
+                vertex_buffers = res.1;
 
                 let camera_info = (cam.position, cam.front);
                 camera_pos_trans.send(camera_info).unwrap();
@@ -316,15 +319,13 @@ fn main() {
             [1.0, 1.0, 1.0, 1.0],
             &format!("FPS: {}", 1.0 / delta),
         );
-
-        // commented because we don't own vbuf_cache anymore :(
-        // draw_text.queue_text(
-        //     200.0,
-        //     70.0,
-        //     20.0,
-        //     [1.0, 1.0, 1.0, 1.0],
-        //     &format!("Cached vbufs: {}", vbuf_cache.get_num_cached_vbufs()),
-        // );
+        draw_text.queue_text(
+            200.0,
+            70.0,
+            20.0,
+            [1.0, 1.0, 1.0, 1.0],
+            &format!("Cached vbufs: {}", cached_vbufs),
+        );
         draw_text.queue_text(
             200.0,
             90.0,
@@ -440,10 +441,6 @@ fn main() {
         }
         if keys_pressed.d {
             cam.move_right(delta);
-        }
-
-        if frame_count % 100 == 0 {
-            cam.print_position();
         }
 
         view = cam.get_view_matrix().into();
@@ -682,7 +679,7 @@ fn main() {
 
     let elapsed = get_elapsed(first_frame);
     let fps = (frame_count as f32) / elapsed;
-    println!("FPS: {}", fps);
+    println!("avg FPS: {}", fps);
     println!("last delta: {}", get_elapsed(last_frame));
 }
 
@@ -692,14 +689,11 @@ pub fn get_elapsed(start: std::time::Instant) -> f32 {
 
 fn setup_ca() -> ca::CellA {
     let start = std::time::Instant::now();
-    let mut ca = ca::CellA::new(SIZE, 13, 26, 14, 26);
-    ca.randomize();
-    for i in 0..20 {
-        println!("gen: {}", i);
-        ca.next_gen()
-    }
+    let mut ca = ca::CellA::new(SIZE);
 
-    println!("CA generations took: {}", get_elapsed(start));
+    ca.compute();
+
+    println!("CA computation took: {}", get_elapsed(start));
     ca
 }
 

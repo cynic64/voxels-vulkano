@@ -45,14 +45,6 @@ impl Camera {
         }
     }
 
-    pub fn print_position(&self) {
-        println!(
-            "Camera position: x: {}, y: {}, z: {}",
-            self.position.x, self.position.y, self.position.z
-        );
-        println!("Pitch: {}, yaw: {}", self.pitch, self.yaw);
-    }
-
     pub fn get_view_matrix(&self) -> Mat4 {
         look_at(&self.position, &(self.position + self.front), &self.up)
     }
