@@ -1,16 +1,12 @@
+#[macro_use]
+extern crate vulkano;
+#[macro_use]
+extern crate vulkano_shader_derive;
+
+mod app;
+use self::app::App;
+
 fn main() {
     let app = App::new();
-    app.say_hello();
-}
-
-struct App {}
-
-impl App {
-    fn new() -> App {
-        App {}
-    }
-
-    fn say_hello(&self) {
-        println!("Hello!");
-    }
+    app.run();
 }
