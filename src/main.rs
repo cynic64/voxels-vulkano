@@ -265,22 +265,25 @@ fn main() {
         // ownership of vbuf_cache and camera_pos_recv is moved here
         let tx = vertex_trans.clone();
 
-        // should this be here?
-        let mut visible_indices = vec![0];
+        // this will get updated later
+        let mut visible_indices = vec![];
 
         loop {
+            let start = std::time::Instant::now();
             // build all vertex buffers and send them
             let vertex_buffers = visible_indices
                 .iter()
                 .map(|&idx| vbuf_cache.get_vbuf_at_idx(idx, &ca.cells, &cloned_dev))
                 .collect::<Vec<_>>();
-            tx.send((vbuf_cache.get_num_cached_vbufs(), vertex_buffers))
+            let elapsed = get_elapsed(start);
+
+            tx.send((elapsed, vbuf_cache.get_num_cached_vbufs(), vertex_buffers))
                 .unwrap();
 
             // check for new info on the camera position
             let result = camera_pos_recv.try_recv();
             if result.is_ok() {
-                // if there is new info, update visible indices
+                // if there is new info, update what's visible
                 let (cam_pos, cam_front) = result.unwrap();
                 visible_indices = sector::get_near_mesh_indices(&cam_pos, &cam_front);
             }
@@ -292,6 +295,7 @@ fn main() {
 
     let mut vertex_buffers = vec![];
     let mut cached_vbufs = 0;
+    let mut vbuf_gen_time_taken = 0.0;
 
     loop {
         // if the vbuf-ing thread has sent any new vertex buffers, replace the old ones
@@ -300,8 +304,9 @@ fn main() {
             let result = vertex_recv.try_recv();
             if result.is_ok() {
                 let res = result.unwrap();
-                cached_vbufs = res.0;
-                vertex_buffers = res.1;
+                vbuf_gen_time_taken = res.0;
+                cached_vbufs = res.1;
+                vertex_buffers = res.2;
 
                 let camera_info = (cam.position, cam.front);
                 camera_pos_trans.send(camera_info).unwrap();
@@ -334,6 +339,16 @@ fn main() {
             &format!(
                 "x: {}, y: {}, z: {}",
                 cam.position.x, cam.position.y, cam.position.z
+            ),
+        );
+        draw_text.queue_text(
+            200.0,
+            110.0,
+            20.0,
+            [1.0, 1.0, 1.0, 1.0],
+            &format!(
+                "Vbuf gen took: {}",
+                vbuf_gen_time_taken
             ),
         );
 
