@@ -9,6 +9,10 @@ use vulkano_win::VkSurfaceBuild;
 
 use std::sync::Arc;
 
+mod camera;
+
+const SIZE: u32 = 512;
+
 #[derive(Copy, Clone, Debug)]
 struct Vertex {
     position: (f32, f32, f32),
