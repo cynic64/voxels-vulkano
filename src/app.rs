@@ -2,9 +2,7 @@ extern crate nalgebra_glm as glm;
 extern crate winit;
 
 extern crate vulkano_win;
-use winit::{
-    Event, EventsLoop, KeyboardInput, VirtualKeyCode, WindowBuilder, WindowEvent,
-};
+use winit::{Event, EventsLoop, KeyboardInput, VirtualKeyCode, WindowBuilder, WindowEvent};
 
 use vulkano::sync::GpuFuture;
 use vulkano_win::VkSurfaceBuild;
@@ -297,7 +295,7 @@ impl App {
         loop {
             let done = self.draw_frame();
             if done {
-                break
+                break;
             }
         }
     }
@@ -318,8 +316,7 @@ impl App {
         }
 
         let (image_num, acquire_future) =
-            match vulkano::swapchain::acquire_next_image(self.vk_stuff.swapchain.clone(), None)
-            {
+            match vulkano::swapchain::acquire_next_image(self.vk_stuff.swapchain.clone(), None) {
                 Ok(r) => r,
                 Err(vulkano::swapchain::AcquireError::OutOfDate) => {
                     self.vk_stuff.recreate_swapchain = true;
@@ -430,13 +427,12 @@ impl App {
         self.vk_stuff.swapchain = new_swapchain;
         self.vk_stuff.images = new_images;
 
-        self.vk_stuff.depth_buffer =
-            vulkano::image::attachment::AttachmentImage::transient(
-                self.vk_stuff.device.clone(),
-                self.vk_stuff.dimensions,
-                vulkano::format::D16Unorm,
-            )
-            .unwrap();
+        self.vk_stuff.depth_buffer = vulkano::image::attachment::AttachmentImage::transient(
+            self.vk_stuff.device.clone(),
+            self.vk_stuff.dimensions,
+            vulkano::format::D16Unorm,
+        )
+        .unwrap();
 
         self.vk_stuff.framebuffers = Vec::new();
 
@@ -451,15 +447,14 @@ impl App {
             100_000_000.,
         );
 
-        self.vk_stuff.dynamic_state.viewports =
-            Some(vec![vulkano::pipeline::viewport::Viewport {
-                origin: [0.0, 0.0],
-                dimensions: [
-                    self.vk_stuff.dimensions[0] as f32,
-                    self.vk_stuff.dimensions[1] as f32,
-                ],
-                depth_range: 0.0..1.0,
-            }]);
+        self.vk_stuff.dynamic_state.viewports = Some(vec![vulkano::pipeline::viewport::Viewport {
+            origin: [0.0, 0.0],
+            dimensions: [
+                self.vk_stuff.dimensions[0] as f32,
+                self.vk_stuff.dimensions[1] as f32,
+            ],
+            depth_range: 0.0..1.0,
+        }]);
 
         self.vk_stuff.recreate_swapchain = false;
     }
@@ -470,11 +465,8 @@ impl App {
             .images
             .iter()
             .map(|image| {
-                let fba: Arc<vulkano::framebuffer::FramebufferAbstract + Send + Sync> =
-                    Arc::new(
-                        vulkano::framebuffer::Framebuffer::start(
-                            self.vk_stuff.renderpass.clone(),
-                        )
+                let fba: Arc<vulkano::framebuffer::FramebufferAbstract + Send + Sync> = Arc::new(
+                    vulkano::framebuffer::Framebuffer::start(self.vk_stuff.renderpass.clone())
                         .add(self.vk_stuff.multisampled_color.clone())
                         .unwrap()
                         .add(image.clone())
@@ -485,14 +477,17 @@ impl App {
                         .unwrap()
                         .build()
                         .unwrap(),
-                    );
+                );
 
                 fba
             })
             .collect::<Vec<_>>();
     }
 
-    fn build_command_buffer(&mut self, image_num: usize) -> vulkano::command_buffer::AutoCommandBuffer {
+    fn build_command_buffer(
+        &mut self,
+        image_num: usize,
+    ) -> vulkano::command_buffer::AutoCommandBuffer {
         let uniform_buffer_subbuffer = {
             let uniform_data = vs::ty::Data {
                 world: self.vk_stuff.model.into(),
@@ -503,6 +498,7 @@ impl App {
             self.vk_stuff.uniform_buffer.next(uniform_data).unwrap()
         };
 
+        // long type! :(
         let uniform_set = Arc::new(
             vulkano::descriptor::descriptor_set::PersistentDescriptorSet::start(
                 self.vk_stuff.pipeline.clone(),
