@@ -309,136 +309,13 @@ impl App {
             .unwrap()
             .cleanup_finished();
 
-        let physical = vulkano::instance::PhysicalDevice::from_index(
-            &self.vk_stuff.instance,
-            self.vk_stuff.physical_device_index,
-        )
-        .unwrap();
-
         if self.vk_stuff.recreate_swapchain {
-            self.vk_stuff.dimensions = self
-                .vk_stuff
-                .surface
-                .capabilities(physical)
-                .expect("failed to get surface capabilities")
-                .current_extent
-                .unwrap_or([1024, 768]);
-
-            self.vk_stuff.multisampled_color =
-                vulkano::image::attachment::AttachmentImage::transient_multisampled(
-                    self.vk_stuff.device.clone(),
-                    self.vk_stuff.dimensions,
-                    4,
-                    self.vk_stuff.swapchain_caps.supported_formats[0].0,
-                )
-                .unwrap();
-
-            self.vk_stuff.multisampled_depth =
-                vulkano::image::attachment::AttachmentImage::transient_multisampled(
-                    self.vk_stuff.device.clone(),
-                    self.vk_stuff.dimensions,
-                    4,
-                    vulkano::format::D16Unorm,
-                )
-                .unwrap();
-
-            let (new_swapchain, new_images) = match self
-                .vk_stuff
-                .swapchain
-                .recreate_with_dimension(self.vk_stuff.dimensions)
-            {
-                Ok(r) => r,
-                Err(vulkano::swapchain::SwapchainCreationError::UnsupportedDimensions) => {
-                    return false;
-                }
-                Err(err) => panic!("{:?}", err),
-            };
-
-            self.vk_stuff.swapchain = new_swapchain;
-            self.vk_stuff.images = new_images;
-
-            self.vk_stuff.depth_buffer =
-                vulkano::image::attachment::AttachmentImage::transient(
-                    self.vk_stuff.device.clone(),
-                    self.vk_stuff.dimensions,
-                    vulkano::format::D16Unorm,
-                )
-                .unwrap();
-
-            self.vk_stuff.framebuffers = Vec::new();;
-
-            self.vk_stuff.projection = glm::perspective(
-                // aspect ratio
-                self.vk_stuff.dimensions[0] as f32 / self.vk_stuff.dimensions[1] as f32,
-                // fov
-                1.5,
-                // near
-                0.1,
-                // far
-                100_000_000.,
-            );
-
-            self.vk_stuff.dynamic_state.viewports =
-                Some(vec![vulkano::pipeline::viewport::Viewport {
-                    origin: [0.0, 0.0],
-                    dimensions: [
-                        self.vk_stuff.dimensions[0] as f32,
-                        self.vk_stuff.dimensions[1] as f32,
-                    ],
-                    depth_range: 0.0..1.0,
-                }]);
-
-            self.vk_stuff.recreate_swapchain = false;
+            self.rebuild_swapchain();
         }
 
         if self.vk_stuff.framebuffers.is_empty() {
-            self.vk_stuff.framebuffers = self
-                .vk_stuff
-                .images
-                .iter()
-                .map(|image| {
-                    let fba: Arc<vulkano::framebuffer::FramebufferAbstract + Send + Sync> =
-                        Arc::new(
-                            vulkano::framebuffer::Framebuffer::start(
-                                self.vk_stuff.renderpass.clone(),
-                            )
-                            .add(self.vk_stuff.multisampled_color.clone())
-                            .unwrap()
-                            .add(image.clone())
-                            .unwrap()
-                            .add(self.vk_stuff.multisampled_depth.clone())
-                            .unwrap()
-                            .add(self.vk_stuff.depth_buffer.clone())
-                            .unwrap()
-                            .build()
-                            .unwrap(),
-                        );
-
-                    fba
-                })
-                .collect::<Vec<_>>();
+            self.rebuild_framebuffers();
         }
-
-        let uniform_buffer_subbuffer = {
-            let uniform_data = vs::ty::Data {
-                world: self.vk_stuff.model.into(),
-                view: self.vk_stuff.view,
-                proj: self.vk_stuff.projection.into(),
-            };
-
-            self.vk_stuff.uniform_buffer.next(uniform_data).unwrap()
-        };
-
-        let set = Arc::new(
-            vulkano::descriptor::descriptor_set::PersistentDescriptorSet::start(
-                self.vk_stuff.pipeline.clone(),
-                0,
-            )
-            .add_buffer(uniform_buffer_subbuffer)
-            .unwrap()
-            .build()
-            .unwrap(),
-        );
 
         let (image_num, acquire_future) =
             match vulkano::swapchain::acquire_next_image(self.vk_stuff.swapchain.clone(), None)
@@ -451,35 +328,7 @@ impl App {
                 Err(err) => panic!("{:?}", err),
             };
 
-        let command_buffer =
-            vulkano::command_buffer::AutoCommandBufferBuilder::primary_one_time_submit(
-                self.vk_stuff.device.clone(),
-                self.vk_stuff.queue.family(),
-            )
-            .unwrap()
-            .begin_render_pass(
-                self.vk_stuff.framebuffers[image_num].clone(),
-                false,
-                vec![
-                    [0.2, 0.2, 0.2, 1.0].into(),
-                    [0.2, 0.2, 0.2, 1.0].into(),
-                    1f32.into(),
-                    vulkano::format::ClearValue::None,
-                ],
-            )
-            .unwrap()
-            .draw(
-                self.vk_stuff.pipeline.clone(),
-                &self.vk_stuff.dynamic_state,
-                vec![self.vk_stuff.vertex_buffer.clone()],
-                set.clone(),
-                (),
-            )
-            .unwrap()
-            .end_render_pass()
-            .unwrap()
-            .build()
-            .unwrap();
+        let command_buffer = self.build_command_buffer(image_num);
 
         let future = self
             .vk_stuff
@@ -531,6 +380,168 @@ impl App {
         });
 
         done
+    }
+
+    fn rebuild_swapchain(&mut self) {
+        let physical = vulkano::instance::PhysicalDevice::from_index(
+            &self.vk_stuff.instance,
+            self.vk_stuff.physical_device_index,
+        )
+        .unwrap();
+
+        self.vk_stuff.dimensions = self
+            .vk_stuff
+            .surface
+            .capabilities(physical)
+            .expect("failed to get surface capabilities")
+            .current_extent
+            .unwrap_or([1024, 768]);
+
+        self.vk_stuff.multisampled_color =
+            vulkano::image::attachment::AttachmentImage::transient_multisampled(
+                self.vk_stuff.device.clone(),
+                self.vk_stuff.dimensions,
+                4,
+                self.vk_stuff.swapchain_caps.supported_formats[0].0,
+            )
+            .unwrap();
+
+        self.vk_stuff.multisampled_depth =
+            vulkano::image::attachment::AttachmentImage::transient_multisampled(
+                self.vk_stuff.device.clone(),
+                self.vk_stuff.dimensions,
+                4,
+                vulkano::format::D16Unorm,
+            )
+            .unwrap();
+
+        let (new_swapchain, new_images) = match self
+            .vk_stuff
+            .swapchain
+            .recreate_with_dimension(self.vk_stuff.dimensions)
+        {
+            Ok(r) => r,
+            Err(vulkano::swapchain::SwapchainCreationError::UnsupportedDimensions) => {
+                return;
+            }
+            Err(err) => panic!("{:?}", err),
+        };
+
+        self.vk_stuff.swapchain = new_swapchain;
+        self.vk_stuff.images = new_images;
+
+        self.vk_stuff.depth_buffer =
+            vulkano::image::attachment::AttachmentImage::transient(
+                self.vk_stuff.device.clone(),
+                self.vk_stuff.dimensions,
+                vulkano::format::D16Unorm,
+            )
+            .unwrap();
+
+        self.vk_stuff.framebuffers = Vec::new();
+
+        self.vk_stuff.projection = glm::perspective(
+            // aspect ratio
+            self.vk_stuff.dimensions[0] as f32 / self.vk_stuff.dimensions[1] as f32,
+            // fov
+            1.5,
+            // near
+            0.1,
+            // far
+            100_000_000.,
+        );
+
+        self.vk_stuff.dynamic_state.viewports =
+            Some(vec![vulkano::pipeline::viewport::Viewport {
+                origin: [0.0, 0.0],
+                dimensions: [
+                    self.vk_stuff.dimensions[0] as f32,
+                    self.vk_stuff.dimensions[1] as f32,
+                ],
+                depth_range: 0.0..1.0,
+            }]);
+
+        self.vk_stuff.recreate_swapchain = false;
+    }
+
+    fn rebuild_framebuffers(&mut self) {
+        self.vk_stuff.framebuffers = self
+            .vk_stuff
+            .images
+            .iter()
+            .map(|image| {
+                let fba: Arc<vulkano::framebuffer::FramebufferAbstract + Send + Sync> =
+                    Arc::new(
+                        vulkano::framebuffer::Framebuffer::start(
+                            self.vk_stuff.renderpass.clone(),
+                        )
+                        .add(self.vk_stuff.multisampled_color.clone())
+                        .unwrap()
+                        .add(image.clone())
+                        .unwrap()
+                        .add(self.vk_stuff.multisampled_depth.clone())
+                        .unwrap()
+                        .add(self.vk_stuff.depth_buffer.clone())
+                        .unwrap()
+                        .build()
+                        .unwrap(),
+                    );
+
+                fba
+            })
+            .collect::<Vec<_>>();
+    }
+
+    fn build_command_buffer(&mut self, image_num: usize) -> vulkano::command_buffer::AutoCommandBuffer {
+        let uniform_buffer_subbuffer = {
+            let uniform_data = vs::ty::Data {
+                world: self.vk_stuff.model.into(),
+                view: self.vk_stuff.view,
+                proj: self.vk_stuff.projection.into(),
+            };
+
+            self.vk_stuff.uniform_buffer.next(uniform_data).unwrap()
+        };
+
+        let uniform_set = Arc::new(
+            vulkano::descriptor::descriptor_set::PersistentDescriptorSet::start(
+                self.vk_stuff.pipeline.clone(),
+                0,
+            )
+            .add_buffer(uniform_buffer_subbuffer)
+            .unwrap()
+            .build()
+            .unwrap(),
+        );
+
+        vulkano::command_buffer::AutoCommandBufferBuilder::primary_one_time_submit(
+            self.vk_stuff.device.clone(),
+            self.vk_stuff.queue.family(),
+        )
+        .unwrap()
+        .begin_render_pass(
+            self.vk_stuff.framebuffers[image_num].clone(),
+            false,
+            vec![
+                [0.2, 0.2, 0.2, 1.0].into(),
+                [0.2, 0.2, 0.2, 1.0].into(),
+                1f32.into(),
+                vulkano::format::ClearValue::None,
+            ],
+        )
+        .unwrap()
+        .draw(
+            self.vk_stuff.pipeline.clone(),
+            &self.vk_stuff.dynamic_state,
+            vec![self.vk_stuff.vertex_buffer.clone()],
+            uniform_set.clone(),
+            (),
+        )
+        .unwrap()
+        .end_render_pass()
+        .unwrap()
+        .build()
+        .unwrap()
     }
 }
 
