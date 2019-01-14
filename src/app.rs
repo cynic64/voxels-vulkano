@@ -24,6 +24,7 @@ impl_vertex!(Vertex, position, color, normal);
 pub struct App {
     vk_stuff: VkStuff,
     cam: camera::Camera,
+    keys_pressed: KeysPressed,
 }
 
 struct VkStuff {
@@ -31,7 +32,6 @@ struct VkStuff {
     physical_device_index: usize,
     events_loop: EventsLoop,
     surface: Arc<vulkano::swapchain::Surface<winit::Window>>,
-    // window: winit::Window,
     dimensions: [u32; 2],
     device: Arc<vulkano::device::Device>,
     queue: Arc<vulkano::device::Queue>,
@@ -52,6 +52,15 @@ struct VkStuff {
     dynamic_state: vulkano::command_buffer::DynamicState,
     vertex_buffer: Arc<vulkano::buffer::cpu_access::CpuAccessibleBuffer<[Vertex]>>,
     previous_frame: Option<Box<GpuFuture>>,
+    delta: f32,
+}
+
+#[derive(Clone)]
+struct KeysPressed {
+    w: bool,
+    a: bool,
+    s: bool,
+    d: bool,
 }
 
 impl App {
@@ -269,6 +278,15 @@ impl App {
         )
         .expect("failed to create buffer");
 
+        let keys_pressed = KeysPressed {
+            w: false,
+            a: false,
+            s: false,
+            d: false,
+        };
+
+        let delta = 0.0;
+
         App {
             vk_stuff: VkStuff {
                 previous_frame,
@@ -276,7 +294,6 @@ impl App {
                 physical_device_index,
                 events_loop,
                 surface,
-                // window: *window,
                 dimensions,
                 device,
                 queue,
@@ -296,14 +313,18 @@ impl App {
                 framebuffers,
                 dynamic_state,
                 vertex_buffer: vbuf,
+                delta,
             },
             cam,
+            keys_pressed,
         }
     }
 
     pub fn run(&mut self) {
         loop {
+            let start = std::time::Instant::now();
             let done = self.draw_frame();
+            self.vk_stuff.delta = get_elapsed(start);
             if done {
                 break;
             }
@@ -311,12 +332,14 @@ impl App {
     }
 
     fn draw_frame(&mut self) -> bool {
+        // previous frame magic
         self.vk_stuff
             .previous_frame
             .as_mut()
             .unwrap()
             .cleanup_finished();
 
+        // rebuild stuff if we need to
         if self.vk_stuff.recreate_swapchain {
             self.rebuild_swapchain();
         }
@@ -325,6 +348,7 @@ impl App {
             self.rebuild_framebuffers();
         }
 
+        // get access to a swapchain image
         let (image_num, acquire_future) =
             match vulkano::swapchain::acquire_next_image(self.vk_stuff.swapchain.clone(), None) {
                 Ok(r) => r,
@@ -335,8 +359,10 @@ impl App {
                 Err(err) => panic!("{:?}", err),
             };
 
+        // build the command buffer
         let command_buffer = self.build_command_buffer(image_num);
 
+        // send commands to GPU
         let future = self
             .vk_stuff
             .previous_frame
@@ -352,6 +378,7 @@ impl App {
             )
             .then_signal_fence_and_flush();
 
+        // see if the commands were executed OK
         match future {
             Ok(future) => {
                 self.vk_stuff.previous_frame = Some(Box::new(future));
@@ -381,6 +408,8 @@ impl App {
         let mut x_movement = 0.0;
         let mut y_movement = 0.0;
 
+        let mut keys_pressed = self.keys_pressed.clone();
+
         self.vk_stuff.events_loop.poll_events(|event| {
             if let Event::WindowEvent { event, .. } = event {
                 match event {
@@ -394,6 +423,7 @@ impl App {
                         ..
                     } => done = true,
 
+                    // Mouse movement
                     WindowEvent::CursorMoved { position: p, .. } => {
                         let (x_diff, y_diff) = (
                             p.x - (dimensions[0] as f64 / 2.0),
@@ -401,7 +431,81 @@ impl App {
                         );
                         x_movement = x_diff as f32;
                         y_movement = y_diff as f32;
-                    }
+                    },
+                    // WASD down
+                    WindowEvent::KeyboardInput {
+                        input:
+                            KeyboardInput {
+                                virtual_keycode: Some(VirtualKeyCode::W),
+                                state: winit::ElementState::Pressed,
+                                ..
+                            },
+                        ..
+                    } => keys_pressed.w = true,
+                    WindowEvent::KeyboardInput {
+                        input:
+                            KeyboardInput {
+                                virtual_keycode: Some(VirtualKeyCode::A),
+                                state: winit::ElementState::Pressed,
+                                ..
+                            },
+                        ..
+                    } => keys_pressed.a = true,
+                    WindowEvent::KeyboardInput {
+                        input:
+                            KeyboardInput {
+                                virtual_keycode: Some(VirtualKeyCode::S),
+                                state: winit::ElementState::Pressed,
+                                ..
+                            },
+                        ..
+                    } => keys_pressed.s = true,
+                    WindowEvent::KeyboardInput {
+                        input:
+                            KeyboardInput {
+                                virtual_keycode: Some(VirtualKeyCode::D),
+                                state: winit::ElementState::Pressed,
+                                ..
+                            },
+                        ..
+                    } => keys_pressed.d = true,
+                    // WASD up
+                    WindowEvent::KeyboardInput {
+                        input:
+                            KeyboardInput {
+                                virtual_keycode: Some(VirtualKeyCode::W),
+                                state: winit::ElementState::Released,
+                                ..
+                            },
+                        ..
+                    } => keys_pressed.w = false,
+                    WindowEvent::KeyboardInput {
+                        input:
+                            KeyboardInput {
+                                virtual_keycode: Some(VirtualKeyCode::A),
+                                state: winit::ElementState::Released,
+                                ..
+                            },
+                        ..
+                    } => keys_pressed.a = false,
+                    WindowEvent::KeyboardInput {
+                        input:
+                            KeyboardInput {
+                                virtual_keycode: Some(VirtualKeyCode::S),
+                                state: winit::ElementState::Released,
+                                ..
+                            },
+                        ..
+                    } => keys_pressed.s = false,
+                    WindowEvent::KeyboardInput {
+                        input:
+                            KeyboardInput {
+                                virtual_keycode: Some(VirtualKeyCode::D),
+                                state: winit::ElementState::Released,
+                                ..
+                            },
+                        ..
+                    } => keys_pressed.d = false,
                     _ => {}
                 }
             }
@@ -416,6 +520,9 @@ impl App {
             .expect("Couldn't re-set cursor position!");
         println!("Moved by: {}, {}", x_movement, y_movement);
         self.cam.mouse_move(x_movement as f32, y_movement as f32);
+
+        // update keys_pressed
+        self.keys_pressed = keys_pressed;
 
         done
     }
@@ -582,10 +689,30 @@ impl App {
     }
 
     fn update_camera(&mut self) {
+        // move the camera (maybe)
+        if self.keys_pressed.w {
+            self.cam.move_forward(self.vk_stuff.delta);
+        }
+        if self.keys_pressed.s {
+            self.cam.move_backward(self.vk_stuff.delta);
+        }
+        if self.keys_pressed.a {
+            self.cam.move_left(self.vk_stuff.delta);
+        }
+        if self.keys_pressed.d {
+         self.cam.move_right(self.vk_stuff.delta);
+        }
+
         println!("View matrix: {}", self.cam.get_view_matrix());
+        // update our view matrix to match the camera's
         self.vk_stuff.view = self.cam.get_view_matrix().into();
     }
 }
+
+fn get_elapsed(start: std::time::Instant) -> f32 {
+    start.elapsed().as_secs() as f32 + start.elapsed().subsec_nanos() as f32 / 1_000_000_000.0
+}
+
 
 mod vs {
     #[derive(VulkanoShader)]
