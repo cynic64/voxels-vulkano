@@ -23,6 +23,7 @@ impl_vertex!(Vertex, position, color, normal);
 
 pub struct App {
     vk_stuff: VkStuff,
+    cam: camera::Camera,
 }
 
 struct VkStuff {
@@ -30,6 +31,7 @@ struct VkStuff {
     physical_device_index: usize,
     events_loop: EventsLoop,
     surface: Arc<vulkano::swapchain::Surface<winit::Window>>,
+    // window: winit::Window,
     dimensions: [u32; 2],
     device: Arc<vulkano::device::Device>,
     queue: Arc<vulkano::device::Queue>,
@@ -54,6 +56,8 @@ struct VkStuff {
 
 impl App {
     pub fn new() -> App {
+        let cam = camera::Camera::default();
+
         let extensions = vulkano_win::required_extensions();
         let instance = vulkano::instance::Instance::new(None, &extensions, None)
             .expect("failed to create instance");
@@ -272,6 +276,7 @@ impl App {
                 physical_device_index,
                 events_loop,
                 surface,
+                // window: *window,
                 dimensions,
                 device,
                 queue,
@@ -292,6 +297,7 @@ impl App {
                 dynamic_state,
                 vertex_buffer: vbuf,
             },
+            cam,
         }
     }
 
@@ -362,7 +368,19 @@ impl App {
             }
         }
 
+        self.update_camera();
+
+        self.poll_events()
+    }
+
+    fn poll_events(&mut self) -> bool {
+        // closures are a pain in the ass!
+        // and caused this mess
         let mut done = false;
+        let dimensions = self.vk_stuff.dimensions;
+        let mut x_movement = 0.0;
+        let mut y_movement = 0.0;
+
         self.vk_stuff.events_loop.poll_events(|event| {
             if let Event::WindowEvent { event, .. } = event {
                 match event {
@@ -375,10 +393,29 @@ impl App {
                             },
                         ..
                     } => done = true,
+
+                    WindowEvent::CursorMoved { position: p, .. } => {
+                        let (x_diff, y_diff) = (
+                            p.x - (dimensions[0] as f64 / 2.0),
+                            p.y - (dimensions[1] as f64 / 2.0),
+                        );
+                        x_movement = x_diff as f32;
+                        y_movement = y_diff as f32;
+                    }
                     _ => {}
                 }
             }
         });
+
+        // reset cursor and change camera view
+        self.vk_stuff.surface.window()
+            .set_cursor_position(winit::dpi::LogicalPosition {
+                x: self.vk_stuff.dimensions[0] as f64 / 2.0,
+                y: self.vk_stuff.dimensions[1] as f64 / 2.0,
+            })
+            .expect("Couldn't re-set cursor position!");
+        println!("Moved by: {}, {}", x_movement, y_movement);
+        self.cam.mouse_move(x_movement as f32, y_movement as f32);
 
         done
     }
@@ -542,6 +579,11 @@ impl App {
         .unwrap()
         .build()
         .unwrap()
+    }
+
+    fn update_camera(&mut self) {
+        println!("View matrix: {}", self.cam.get_view_matrix());
+        self.vk_stuff.view = self.cam.get_view_matrix().into();
     }
 }
 
