@@ -54,6 +54,7 @@ struct VkStuff {
     vertex_buffer: Arc<vulkano::buffer::immutable::ImmutableBuffer<[Vertex]>>,
     previous_frame: Option<Box<GpuFuture>>,
     delta: f32,
+    frame_count: u32,
 }
 
 struct ChannelStuff {
@@ -284,14 +285,6 @@ impl App {
         .expect("failed to create buffer");
         future.flush().unwrap();
 
-        // let (buffer, future) = ImmutableBuffer::from_iter(
-        //     vertices().iter().cloned(),
-        //     BufferUsage::vertex_buffer(),
-        //     graphics_queue.clone(),
-        // )
-        // .unwrap();
-        // future.flush().unwrap();
-
         let keys_pressed = KeysPressed {
             w: false,
             a: false,
@@ -330,6 +323,7 @@ impl App {
                 dynamic_state,
                 vertex_buffer: vbuf,
                 delta,
+                frame_count: 0,
             },
             cam,
             keys_pressed,
@@ -339,6 +333,8 @@ impl App {
 
     pub fn run(&mut self) {
         self.channels.recv = Some(Self::spawn_thread());
+
+        let start = std::time::Instant::now();
         loop {
             let start = std::time::Instant::now();
             let done = self.draw_frame();
@@ -347,6 +343,9 @@ impl App {
                 break;
             }
         }
+
+        let fps = (self.vk_stuff.frame_count as f32) / get_elapsed(start);
+        println!("Average FPS: {}", fps);
     }
 
     fn spawn_thread() -> std::sync::mpsc::Receiver<String> {
@@ -428,6 +427,7 @@ impl App {
         }
 
         self.update_camera();
+        self.vk_stuff.frame_count += 1;
 
         self.poll_events()
     }
