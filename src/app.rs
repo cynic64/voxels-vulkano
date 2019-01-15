@@ -21,6 +21,8 @@ struct Vertex {
 }
 impl_vertex!(Vertex, position, color, normal);
 
+type VertexBuffer = Arc<vulkano::buffer::immutable::ImmutableBuffer<[Vertex]>>;
+
 pub struct App {
     vk_stuff: VkStuff,
     cam: camera::Camera,
@@ -51,14 +53,14 @@ struct VkStuff {
     pipeline: Arc<vulkano::pipeline::GraphicsPipelineAbstract + Send + Sync>,
     framebuffers: Vec<Arc<vulkano::framebuffer::FramebufferAbstract + Send + Sync>>,
     dynamic_state: vulkano::command_buffer::DynamicState,
-    vertex_buffer: Arc<vulkano::buffer::immutable::ImmutableBuffer<[Vertex]>>,
+    vertex_buffer: VertexBuffer,
     previous_frame: Option<Box<GpuFuture>>,
     delta: f32,
     frame_count: u32,
 }
 
 struct ChannelStuff {
-    recv: Option<std::sync::mpsc::Receiver<String>>,
+    recv: Option<std::sync::mpsc::Receiver<VertexBuffer>>,
 }
 
 #[derive(Clone)]
@@ -239,7 +241,7 @@ impl App {
                 .fragment_shader(fs.main_entry_point(), ())
                 .render_pass(vulkano::framebuffer::Subpass::from(renderpass.clone(), 0).unwrap())
                 .depth_stencil_simple_depth()
-                .cull_mode_back()
+                // .cull_mode_back()
                 .build(device.clone())
                 .unwrap(),
         );
@@ -332,7 +334,7 @@ impl App {
     }
 
     pub fn run(&mut self) {
-        self.channels.recv = Some(Self::spawn_thread());
+        self.channels.recv = Some(Self::spawn_thread(self.vk_stuff.queue.clone()));
 
         let start = std::time::Instant::now();
         loop {
@@ -348,10 +350,11 @@ impl App {
         println!("Average FPS: {}", fps);
     }
 
-    fn spawn_thread() -> std::sync::mpsc::Receiver<String> {
+    fn spawn_thread(queue: Arc<vulkano::device::Queue>) -> std::sync::mpsc::Receiver<VertexBuffer> {
         let (trans, recv) = std::sync::mpsc::channel();
         std::thread::spawn(move || loop {
-            trans.send(String::from("Hello!")).unwrap();
+            let vbuf = build_random_vbuf(queue.clone());
+            trans.send(vbuf).unwrap();
 
             std::thread::sleep(std::time::Duration::from_millis(500));
         });
@@ -436,8 +439,8 @@ impl App {
         if self.channels.recv.is_some() {
             let result = self.channels.recv.as_mut().unwrap().try_recv();
             if result.is_ok() {
-                let str = result.unwrap();
-                println!("Got: {}", str);
+                println!("Got a new vertex buffer!");
+                self.vk_stuff.vertex_buffer = result.unwrap();
             }
         } else {
             println!("Reciever uninitialized!");
@@ -755,6 +758,31 @@ impl App {
 
 fn get_elapsed(start: std::time::Instant) -> f32 {
     start.elapsed().as_secs() as f32 + start.elapsed().subsec_nanos() as f32 / 1_000_000_000.0
+}
+
+fn build_random_vbuf(queue: Arc<vulkano::device::Queue>) -> VertexBuffer {
+    let rand_pos = || (((rand::random::<u32>() % 256) - 128) as f32) / 128.0;
+    let vertices = (0..10)
+        .map(|_| Vertex {
+            position: (rand_pos() + 10000.0, rand_pos(), rand_pos()),
+            color: (rand::random(), rand::random(), rand::random(), rand::random()),
+            normal: (1.0, 1.0, 1.0),
+        })
+        .collect::<Vec<_>>();
+
+    vbuf_from_verts(queue, vertices)
+}
+
+fn vbuf_from_verts(queue: Arc<vulkano::device::Queue>, vertices: Vec<Vertex>) -> VertexBuffer {
+    let (buffer, future) = vulkano::buffer::immutable::ImmutableBuffer::from_iter(
+        vertices.iter().cloned(),
+        vulkano::buffer::BufferUsage::vertex_buffer(),
+        queue.clone(),
+    )
+    .unwrap();
+    future.flush().unwrap();
+
+    buffer
 }
 
 mod vs {
