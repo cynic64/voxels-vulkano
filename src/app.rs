@@ -25,6 +25,7 @@ pub struct App {
     vk_stuff: VkStuff,
     cam: camera::Camera,
     keys_pressed: KeysPressed,
+    channels: ChannelStuff,
 }
 
 struct VkStuff {
@@ -50,9 +51,13 @@ struct VkStuff {
     pipeline: Arc<vulkano::pipeline::GraphicsPipelineAbstract + Send + Sync>,
     framebuffers: Vec<Arc<vulkano::framebuffer::FramebufferAbstract + Send + Sync>>,
     dynamic_state: vulkano::command_buffer::DynamicState,
-    vertex_buffer: Arc<vulkano::buffer::cpu_access::CpuAccessibleBuffer<[Vertex]>>,
+    vertex_buffer: Arc<vulkano::buffer::immutable::ImmutableBuffer<[Vertex]>>,
     previous_frame: Option<Box<GpuFuture>>,
     delta: f32,
+}
+
+struct ChannelStuff {
+    recv: Option<std::sync::mpsc::Receiver<String>>,
 }
 
 #[derive(Clone)]
@@ -253,9 +258,7 @@ impl App {
             scissors: None,
         };
 
-        let vbuf = vulkano::buffer::cpu_access::CpuAccessibleBuffer::from_iter(
-            device.clone(),
-            vulkano::buffer::BufferUsage::vertex_buffer(),
+        let (vbuf, future) = vulkano::buffer::immutable::ImmutableBuffer::from_iter(
             vec![
                 Vertex {
                     position: (100.0, 100.0, -100.0),
@@ -275,8 +278,19 @@ impl App {
             ]
             .iter()
             .cloned(),
+            vulkano::buffer::BufferUsage::vertex_buffer(),
+            queue.clone(),
         )
         .expect("failed to create buffer");
+        future.flush().unwrap();
+
+        // let (buffer, future) = ImmutableBuffer::from_iter(
+        //     vertices().iter().cloned(),
+        //     BufferUsage::vertex_buffer(),
+        //     graphics_queue.clone(),
+        // )
+        // .unwrap();
+        // future.flush().unwrap();
 
         let keys_pressed = KeysPressed {
             w: false,
@@ -286,6 +300,8 @@ impl App {
         };
 
         let delta = 0.0;
+
+        let channels = ChannelStuff { recv: None };
 
         App {
             vk_stuff: VkStuff {
@@ -317,10 +333,12 @@ impl App {
             },
             cam,
             keys_pressed,
+            channels,
         }
     }
 
     pub fn run(&mut self) {
+        self.channels.recv = Some(Self::spawn_thread());
         loop {
             let start = std::time::Instant::now();
             let done = self.draw_frame();
@@ -331,6 +349,17 @@ impl App {
         }
     }
 
+    fn spawn_thread() -> std::sync::mpsc::Receiver<String> {
+        let (trans, recv) = std::sync::mpsc::channel();
+        std::thread::spawn(move || loop {
+            trans.send(String::from("Hello!")).unwrap();
+
+            std::thread::sleep(std::time::Duration::from_millis(500));
+        });
+
+        recv
+    }
+
     fn draw_frame(&mut self) -> bool {
         // previous frame magic
         self.vk_stuff
@@ -338,6 +367,9 @@ impl App {
             .as_mut()
             .unwrap()
             .cleanup_finished();
+
+        // check for updates from the thread
+        self.check_channels();
 
         // rebuild stuff if we need to
         if self.vk_stuff.recreate_swapchain {
@@ -400,6 +432,18 @@ impl App {
         self.poll_events()
     }
 
+    fn check_channels(&mut self) {
+        if self.channels.recv.is_some() {
+            let result = self.channels.recv.as_mut().unwrap().try_recv();
+            if result.is_ok() {
+                let str = result.unwrap();
+                println!("Got: {}", str);
+            }
+        } else {
+            println!("Reciever uninitialized!");
+        }
+    }
+
     fn poll_events(&mut self) -> bool {
         // closures are a pain in the ass!
         // and caused this mess
@@ -431,7 +475,7 @@ impl App {
                         );
                         x_movement = x_diff as f32;
                         y_movement = y_diff as f32;
-                    },
+                    }
                     // WASD down
                     WindowEvent::KeyboardInput {
                         input:
@@ -512,13 +556,14 @@ impl App {
         });
 
         // reset cursor and change camera view
-        self.vk_stuff.surface.window()
+        self.vk_stuff
+            .surface
+            .window()
             .set_cursor_position(winit::dpi::LogicalPosition {
                 x: self.vk_stuff.dimensions[0] as f64 / 2.0,
                 y: self.vk_stuff.dimensions[1] as f64 / 2.0,
             })
             .expect("Couldn't re-set cursor position!");
-        println!("Moved by: {}, {}", x_movement, y_movement);
         self.cam.mouse_move(x_movement as f32, y_movement as f32);
 
         // update keys_pressed
@@ -700,10 +745,9 @@ impl App {
             self.cam.move_left(self.vk_stuff.delta);
         }
         if self.keys_pressed.d {
-         self.cam.move_right(self.vk_stuff.delta);
+            self.cam.move_right(self.vk_stuff.delta);
         }
 
-        println!("View matrix: {}", self.cam.get_view_matrix());
         // update our view matrix to match the camera's
         self.vk_stuff.view = self.cam.get_view_matrix().into();
     }
@@ -712,7 +756,6 @@ impl App {
 fn get_elapsed(start: std::time::Instant) -> f32 {
     start.elapsed().as_secs() as f32 + start.elapsed().subsec_nanos() as f32 / 1_000_000_000.0
 }
-
 
 mod vs {
     #[derive(VulkanoShader)]
