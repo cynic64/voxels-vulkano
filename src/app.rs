@@ -9,12 +9,13 @@ use vulkano_win::VkSurfaceBuild;
 
 use std::sync::Arc;
 
+mod chunk;
 mod camera;
 
-const SIZE: u32 = 512;
+const SIZE: u32 = 64;
 
 #[derive(Copy, Clone, Debug)]
-struct Vertex {
+pub struct Vertex {
     position: (f32, f32, f32),
     color: (f32, f32, f32, f32),
     normal: (f32, f32, f32),
@@ -352,8 +353,12 @@ impl App {
 
     fn spawn_thread(queue: Arc<vulkano::device::Queue>) -> std::sync::mpsc::Receiver<VertexBuffer> {
         let (trans, recv) = std::sync::mpsc::channel();
+        let mut ch = chunk::Chunk::new(queue.clone());
+        ch.update_positions();
+
         std::thread::spawn(move || loop {
-            let vbuf = build_random_vbuf(queue.clone());
+            ch.update_vbuf(queue.clone());
+            let vbuf = ch.get_vbuf();
             trans.send(vbuf).unwrap();
 
             std::thread::sleep(std::time::Duration::from_millis(500));
@@ -758,31 +763,6 @@ impl App {
 
 fn get_elapsed(start: std::time::Instant) -> f32 {
     start.elapsed().as_secs() as f32 + start.elapsed().subsec_nanos() as f32 / 1_000_000_000.0
-}
-
-fn build_random_vbuf(queue: Arc<vulkano::device::Queue>) -> VertexBuffer {
-    let rand_pos = || (((rand::random::<u32>() % 256) - 128) as f32) / 128.0;
-    let vertices = (0..10)
-        .map(|_| Vertex {
-            position: (rand_pos() + 10000.0, rand_pos(), rand_pos()),
-            color: (rand::random(), rand::random(), rand::random(), rand::random()),
-            normal: (1.0, 1.0, 1.0),
-        })
-        .collect::<Vec<_>>();
-
-    vbuf_from_verts(queue, vertices)
-}
-
-fn vbuf_from_verts(queue: Arc<vulkano::device::Queue>, vertices: Vec<Vertex>) -> VertexBuffer {
-    let (buffer, future) = vulkano::buffer::immutable::ImmutableBuffer::from_iter(
-        vertices.iter().cloned(),
-        vulkano::buffer::BufferUsage::vertex_buffer(),
-        queue.clone(),
-    )
-    .unwrap();
-    future.flush().unwrap();
-
-    buffer
 }
 
 mod vs {
