@@ -5,7 +5,6 @@ use super::Vertex;
 use super::VertexBuffer;
 use std::sync::Arc;
 
-use rand::Rng;
 use vulkano::sync::GpuFuture;
 
 const CHUNK_SIZE: usize = 32;
@@ -98,6 +97,35 @@ impl Chunk {
 
     pub fn get_vbuf(&self) -> VertexBuffer {
         self.vbuf.clone()
+    }
+
+    pub fn randomize_state(&mut self) {
+        // doesn't actually randomize it :p
+
+        // self.cells = (0..CHUNK_SIZE)
+        //     .map(|_| {
+        //         (0..CHUNK_SIZE)
+        //             .map(|_| (0..CHUNK_SIZE).map(|_| rand::random()).collect::<Vec<_>>())
+        //             .collect::<Vec<_>>()
+        //     })
+        //     .flatten()
+        //     .flatten()
+        //     .collect();
+
+        let s = CHUNK_SIZE;
+        let coef = 0.5;
+        self.cells = (0..s)
+            .map(move |z| {
+                (0..s).map(move |y| {
+                    (0..s).map(move |x| {
+                        (x as f32 * coef).sin() + (y as f32 * coef).sin() + (z as f32 * coef).sin()
+                            > 0.0
+                    })
+                })
+            })
+            .flatten()
+            .flatten()
+            .collect::<Vec<_>>();
     }
 
     fn generate_vertices(&self) -> Vec<Vertex> {

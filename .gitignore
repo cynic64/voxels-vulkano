@@ -1,3 +1,4 @@
 /target
 /src/oldmain.rs
+.log
 **/*.rs.bk

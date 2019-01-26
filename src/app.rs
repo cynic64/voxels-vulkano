@@ -1,6 +1,10 @@
 extern crate nalgebra_glm as glm;
 extern crate winit;
 
+use na::{Isometry3, Point3, Vector3, Translation3, Rotation3, UnitQuaternion};
+use ncollide3d::shape::Cuboid;
+use ncollide3d::query::{Ray, RayCast};
+
 extern crate vulkano_win;
 use winit::{Event, EventsLoop, KeyboardInput, VirtualKeyCode, WindowBuilder, WindowEvent};
 
@@ -61,7 +65,7 @@ struct VkStuff {
 }
 
 struct ChannelStuff {
-    recv: Option<std::sync::mpsc::Receiver<VertexBuffer>>,
+    vbuf_recv: Option<std::sync::mpsc::Receiver<VertexBuffer>>,
 }
 
 #[derive(Clone)]
@@ -242,7 +246,7 @@ impl App {
                 .fragment_shader(fs.main_entry_point(), ())
                 .render_pass(vulkano::framebuffer::Subpass::from(renderpass.clone(), 0).unwrap())
                 .depth_stencil_simple_depth()
-                // .cull_mode_back()
+                .cull_mode_back()
                 .build(device.clone())
                 .unwrap(),
         );
@@ -297,7 +301,7 @@ impl App {
 
         let delta = 0.0;
 
-        let channels = ChannelStuff { recv: None };
+        let channels = ChannelStuff { vbuf_recv: None };
 
         App {
             vk_stuff: VkStuff {
@@ -335,7 +339,7 @@ impl App {
     }
 
     pub fn run(&mut self) {
-        self.channels.recv = Some(Self::spawn_thread(self.vk_stuff.queue.clone()));
+        self.channels.vbuf_recv = Some(Self::spawn_thread(self.vk_stuff.queue.clone()));
 
         let start = std::time::Instant::now();
         loop {
@@ -352,19 +356,20 @@ impl App {
     }
 
     fn spawn_thread(queue: Arc<vulkano::device::Queue>) -> std::sync::mpsc::Receiver<VertexBuffer> {
-        let (trans, recv) = std::sync::mpsc::channel();
+        let (vbuf_trans, vbuf_recv) = std::sync::mpsc::channel();
         let mut ch = chunk::Chunk::new(queue.clone());
         ch.update_positions();
 
         std::thread::spawn(move || loop {
+            ch.randomize_state();
             ch.update_vbuf(queue.clone());
             let vbuf = ch.get_vbuf();
-            trans.send(vbuf).unwrap();
+            vbuf_trans.send(vbuf).unwrap();
 
-            std::thread::sleep(std::time::Duration::from_millis(500));
+            std::thread::sleep(std::time::Duration::from_millis(2000));
         });
 
-        recv
+        vbuf_recv
     }
 
     fn draw_frame(&mut self) -> bool {
@@ -573,6 +578,20 @@ impl App {
             })
             .expect("Couldn't re-set cursor position!");
         self.cam.mouse_move(x_movement as f32, y_movement as f32);
+
+        // Ray - for later...
+        // let orig = self.cam.position;
+        // let dir = self.cam.front;
+        // let cuboid = Cuboid::new(Vector3::new(16.0, 16.0, 16.0));
+        // let ray = Ray::new(orig.into(), dir);
+
+        // let isom = Isometry3::from_parts(
+        //     Translation3::new(16.0, 16.0, 16.0),
+        //     UnitQuaternion::from_scaled_axis(Vector3::y() * 0.0)
+        // );
+        // if cuboid.toi_with_ray(&isom, &ray, true).is_some() {
+        //     println!("Collision!, {}", rand::random::<u8>());
+        // }
 
         // update keys_pressed
         self.keys_pressed = keys_pressed;

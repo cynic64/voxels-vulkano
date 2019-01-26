@@ -205,10 +205,6 @@ fn get_value_of_vertex(cells: &[u8], base_idx: usize, offsets: &[Offset]) -> f32
 
     for offset in offsets.iter() {
         let idx_offset = offset.get_idx_offset();
-        // pray it doesn't overflow in the usize -> i32 conversion
-        // would happen with size > 1200, which is pretty extreme but possible.
-        // usize overflows at size > 1500, which isn't so great either.
-        // turns out 3d is hard! ;)
         let new_idx = ((base_idx as i32) + idx_offset) as usize;
         if cells[new_idx] > 0 {
             neighbor_count += 1;
