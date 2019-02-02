@@ -446,8 +446,8 @@ impl App {
     }
 
     fn check_channels(&mut self) {
-        if self.channels.recv.is_some() {
-            let result = self.channels.recv.as_mut().unwrap().try_recv();
+        if self.channels.vbuf_recv.is_some() {
+            let result = self.channels.vbuf_recv.as_mut().unwrap().try_recv();
             if result.is_ok() {
                 println!("Got a new vertex buffer!");
                 self.vk_stuff.vertex_buffer = result.unwrap();
