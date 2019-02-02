@@ -1,6 +1,11 @@
 extern crate rayon;
 use rayon::prelude::*;
 
+use na::{Isometry3, Point3, Vector3, Translation3, Rotation3, UnitQuaternion};
+use nalgebra_glm::Vec3;
+use ncollide3d::shape::Cuboid;
+use ncollide3d::query::{Ray, RayCast};
+
 use super::Vertex;
 use super::VertexBuffer;
 use std::sync::Arc;
@@ -126,6 +131,13 @@ impl Chunk {
             .flatten()
             .flatten()
             .collect::<Vec<_>>();
+    }
+
+    pub fn generate_cuboids_close_to(&self, camera_position: Vec3) {
+        // generates a list of not-air cuboids for testing ray intersections with.
+        let region_size = 5;
+        let start_offset = region_size / 2;
+        println!("[GCCT] Camera position: {}", camera_position);
     }
 
     fn generate_vertices(&self) -> Vec<Vertex> {

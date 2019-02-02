@@ -1,9 +1,11 @@
 extern crate nalgebra_glm as glm;
 extern crate winit;
+extern crate crossbeam_channel;
 
 use na::{Isometry3, Point3, Vector3, Translation3, Rotation3, UnitQuaternion};
 use ncollide3d::shape::Cuboid;
 use ncollide3d::query::{Ray, RayCast};
+
 
 extern crate vulkano_win;
 use winit::{Event, EventsLoop, KeyboardInput, VirtualKeyCode, WindowBuilder, WindowEvent};
@@ -65,7 +67,8 @@ struct VkStuff {
 }
 
 struct ChannelStuff {
-    vbuf_recv: Option<std::sync::mpsc::Receiver<VertexBuffer>>,
+    vbuf_recv: Option<crossbeam_channel::Receiver<VertexBuffer>>,
+    cam_pos_trans: Option<crossbeam_channel::Sender<nalgebra_glm::Vec3>>,
 }
 
 #[derive(Clone)]
@@ -301,7 +304,7 @@ impl App {
 
         let delta = 0.0;
 
-        let channels = ChannelStuff { vbuf_recv: None };
+        let channels = ChannelStuff { vbuf_recv: None, cam_pos_trans: None };
 
         App {
             vk_stuff: VkStuff {
@@ -339,7 +342,9 @@ impl App {
     }
 
     pub fn run(&mut self) {
-        self.channels.vbuf_recv = Some(Self::spawn_thread(self.vk_stuff.queue.clone()));
+        let channels = Self::spawn_thread(self.vk_stuff.queue.clone());
+        self.channels.vbuf_recv = Some(channels.0);
+        self.channels.cam_pos_trans = Some(channels.1);
 
         let start = std::time::Instant::now();
         loop {
@@ -355,21 +360,43 @@ impl App {
         println!("Average FPS: {}", fps);
     }
 
-    fn spawn_thread(queue: Arc<vulkano::device::Queue>) -> std::sync::mpsc::Receiver<VertexBuffer> {
-        let (vbuf_trans, vbuf_recv) = std::sync::mpsc::channel();
+    fn spawn_thread(queue: Arc<vulkano::device::Queue>) -> (crossbeam_channel::Receiver<VertexBuffer>, crossbeam_channel::Sender<nalgebra_glm::Vec3>) {
+        let (vbuf_trans, vbuf_recv) = crossbeam_channel::bounded(1);
+        let (cam_pos_trans, cam_pos_recv) = crossbeam_channel::bounded(1);
         let mut ch = chunk::Chunk::new(queue.clone());
         ch.update_positions();
 
-        std::thread::spawn(move || loop {
-            ch.randomize_state();
-            ch.update_vbuf(queue.clone());
-            let vbuf = ch.get_vbuf();
-            vbuf_trans.send(vbuf).unwrap();
 
-            std::thread::sleep(std::time::Duration::from_millis(2000));
+        std::thread::spawn(move || {
+            // maybe use option instead of a dummy value, idk :/
+            let mut camera_pos = nalgebra_glm::vec3(0.0, 0.0, 0.0);
+
+            loop {
+                println!("[ST] Tick! {}", rand::random::<u8>());
+                // get a new vbuf and send it
+                ch.randomize_state();
+                ch.update_vbuf(queue.clone());
+                let vbuf = ch.get_vbuf();
+
+                // only send the vbuf if there's nothing in the channel already
+                if vbuf_trans.is_empty() {
+                    vbuf_trans.send(vbuf).unwrap();
+                }
+
+                // check if we got a cam position update
+                let result = cam_pos_recv.try_recv();
+                if result.is_ok() {
+                    println!("[ST] Got a new camera position!");
+                    camera_pos = result.unwrap();
+                }
+
+                println!("[ST] Camera pos: {}", camera_pos);
+
+                std::thread::sleep(std::time::Duration::from_millis(2000));
+            }
         });
 
-        vbuf_recv
+        (vbuf_recv, cam_pos_trans)
     }
 
     fn draw_frame(&mut self) -> bool {
@@ -777,6 +804,16 @@ impl App {
 
         // update our view matrix to match the camera's
         self.vk_stuff.view = self.cam.get_view_matrix().into();
+
+        // send a message to the vbuf'ing thread - if we can
+        if self.channels.cam_pos_trans.is_some() {
+            let chan = self.channels.cam_pos_trans.as_mut().unwrap();
+            if chan.is_empty() {
+                chan.send(self.cam.position).unwrap();
+            }
+        } else {
+            println!("[UC] Camera-pos channel uninitialized!");
+        }
     }
 }
 
