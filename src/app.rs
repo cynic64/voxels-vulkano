@@ -2,7 +2,7 @@ extern crate nalgebra_glm as glm;
 extern crate winit;
 extern crate crossbeam_channel;
 
-use na::{Isometry3, Point3, Vector3, Translation3, Rotation3, UnitQuaternion};
+use na::{Isometry3, Vector3};
 use ncollide3d::shape::Cuboid;
 use ncollide3d::query::{Ray, RayCast};
 
@@ -20,6 +20,8 @@ mod camera;
 
 const SIZE: u32 = 64;
 
+type RaycastCuboid = (Isometry3<f32>, usize);
+
 #[derive(Copy, Clone, Debug)]
 pub struct Vertex {
     position: (f32, f32, f32),
@@ -35,6 +37,8 @@ pub struct App {
     cam: camera::Camera,
     keys_pressed: KeysPressed,
     channels: ChannelStuff,
+    // this one doesn't fit - but idk where to put it...
+    nearby_cuboids: Vec<RaycastCuboid>,
 }
 
 struct VkStuff {
@@ -69,6 +73,8 @@ struct VkStuff {
 struct ChannelStuff {
     vbuf_recv: Option<crossbeam_channel::Receiver<VertexBuffer>>,
     cam_pos_trans: Option<crossbeam_channel::Sender<nalgebra_glm::Vec3>>,
+    nearby_cuboids_recv: Option<crossbeam_channel::Receiver<Vec<RaycastCuboid>>>,
+    indices_to_change_trans: Option<crossbeam_channel::Sender<Vec<usize>>>,
 }
 
 #[derive(Clone)]
@@ -304,7 +310,7 @@ impl App {
 
         let delta = 0.0;
 
-        let channels = ChannelStuff { vbuf_recv: None, cam_pos_trans: None };
+        let channels = ChannelStuff { vbuf_recv: None, cam_pos_trans: None, nearby_cuboids_recv: None, indices_to_change_trans: None };
 
         App {
             vk_stuff: VkStuff {
@@ -338,6 +344,7 @@ impl App {
             cam,
             keys_pressed,
             channels,
+            nearby_cuboids: vec![],
         }
     }
 
@@ -345,6 +352,8 @@ impl App {
         let channels = Self::spawn_thread(self.vk_stuff.queue.clone());
         self.channels.vbuf_recv = Some(channels.0);
         self.channels.cam_pos_trans = Some(channels.1);
+        self.channels.nearby_cuboids_recv = Some(channels.2);
+        self.channels.indices_to_change_trans = Some(channels.3);
 
         let start = std::time::Instant::now();
         loop {
@@ -360,21 +369,27 @@ impl App {
         println!("Average FPS: {}", fps);
     }
 
-    fn spawn_thread(queue: Arc<vulkano::device::Queue>) -> (crossbeam_channel::Receiver<VertexBuffer>, crossbeam_channel::Sender<nalgebra_glm::Vec3>) {
+    fn spawn_thread(queue: Arc<vulkano::device::Queue>) -> (crossbeam_channel::Receiver<VertexBuffer>, crossbeam_channel::Sender<nalgebra_glm::Vec3>, crossbeam_channel::Receiver<Vec<RaycastCuboid>>, crossbeam_channel::Sender<Vec<usize>>) {
         let (vbuf_trans, vbuf_recv) = crossbeam_channel::bounded(1);
         let (cam_pos_trans, cam_pos_recv) = crossbeam_channel::bounded(1);
+        let (nearby_cuboids_trans, nearby_cuboids_recv) = crossbeam_channel::bounded(1);
+        let indices_to_change = crossbeam_channel::bounded(1);
+        let indices_to_change_trans: crossbeam_channel::Sender<Vec<usize>> = indices_to_change.0;
+        let indices_to_change_recv: crossbeam_channel::Receiver<Vec<usize>> = indices_to_change.1;
         let mut ch = chunk::Chunk::new(queue.clone());
         ch.update_positions();
 
 
+        // TODO: make some things update faster than others
         std::thread::spawn(move || {
             // maybe use option instead of a dummy value, idk :/
             let mut camera_pos = nalgebra_glm::vec3(0.0, 0.0, 0.0);
+            ch.randomize_state();
 
             loop {
+                println!();
                 println!("[ST] Tick! {}", rand::random::<u8>());
                 // get a new vbuf and send it
-                ch.randomize_state();
                 ch.update_vbuf(queue.clone());
                 let vbuf = ch.get_vbuf();
 
@@ -383,20 +398,40 @@ impl App {
                     vbuf_trans.send(vbuf).unwrap();
                 }
 
-                // check if we got a cam position update
+                // check if we got a cam position update,
+                // and if we did generate raycasting cuboids
                 let result = cam_pos_recv.try_recv();
                 if result.is_ok() {
                     println!("[ST] Got a new camera position!");
                     camera_pos = result.unwrap();
+                    println!("[ST] Generating cuboids...");
+                    let cuboids = ch.generate_cuboids_close_to(camera_pos);
+                    println!("[ST] got: {:?}", cuboids);
+                    // send it - if empty
+                    if nearby_cuboids_trans.is_empty() {
+                        nearby_cuboids_trans.send(cuboids).unwrap();
+                    } else {
+                        println!("[ST] NCT is full - this shouldn't happen :/");
+                    }
+                }
+
+                // check if we should change some indices
+                let result = indices_to_change_recv.try_recv();
+                if result.is_ok() {
+                    let indices_to_change = result.unwrap();
+                    println!("[ST] we should change these indices: {:?}", indices_to_change);
+                    for idx in indices_to_change.iter() {
+                        ch.cells[*idx] = 2;
+                    }
                 }
 
                 println!("[ST] Camera pos: {}", camera_pos);
 
-                std::thread::sleep(std::time::Duration::from_millis(2000));
+                std::thread::sleep(std::time::Duration::from_millis(100));
             }
         });
 
-        (vbuf_recv, cam_pos_trans)
+        (vbuf_recv, cam_pos_trans, nearby_cuboids_recv, indices_to_change_trans)
     }
 
     fn draw_frame(&mut self) -> bool {
@@ -480,7 +515,17 @@ impl App {
                 self.vk_stuff.vertex_buffer = result.unwrap();
             }
         } else {
-            println!("Reciever uninitialized!");
+            println!("Vbuf reciever uninitialized!");
+        }
+
+        if self.channels.nearby_cuboids_recv.is_some() {
+            let result = self.channels.nearby_cuboids_recv.as_mut().unwrap().try_recv();
+            if result.is_ok() {
+                println!("Got new nearby cuboids :)");
+                self.nearby_cuboids = result.unwrap();
+            }
+        } else {
+            println!("Nearby cuboids reciever uninitialized!");
         }
     }
 
@@ -813,6 +858,29 @@ impl App {
             }
         } else {
             println!("[UC] Camera-pos channel uninitialized!");
+        }
+
+        // check which cube we're pointing at - if at all
+        let orig = self.cam.position;
+        let dir = self.cam.front;
+        let cuboid = Cuboid::new(Vector3::new(0.5, 0.5, 0.5));
+        let ray = Ray::new(orig.into(), dir);
+        let mut indices_to_change = vec![];
+
+        for (isom, idx) in self.nearby_cuboids.iter() {
+            if cuboid.toi_with_ray(&isom, &ray, true).is_some() {
+                indices_to_change.push(*idx);
+            }
+        }
+
+        // send the indices to change, if we can
+        if self.channels.indices_to_change_trans.is_some() {
+            let chan = self.channels.indices_to_change_trans.as_mut().unwrap();
+            if chan.is_empty() {
+                chan.send(indices_to_change).unwrap();
+            }
+        } else {
+            println!("[UC] Indices-to-change channel uninitialized!");
         }
     }
 }

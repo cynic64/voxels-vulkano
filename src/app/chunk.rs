@@ -14,6 +14,8 @@ use vulkano::sync::GpuFuture;
 
 const CHUNK_SIZE: usize = 32;
 
+use super::RaycastCuboid;
+
 #[rustfmt::skip]
 const CUBE_CORNERS: [CubeCorner; 8] = [
     CubeCorner { position: (-0.5, -0.5, -0.5), neighbors: [Offset { right: -1, up: -1, front: -1},   Offset { right: -1, up: -1, front:  0},   Offset { right: -1, up:  0, front: -1},   Offset { right: -1, up:  0, front:  0},  Offset { right:  0, up: -1, front: -1},    Offset { right:  0, up: -1, front:  0},   Offset { right:  0, up:  0, front: -1},  Offset { right:  0, up:  0, front:  0} ] },
@@ -37,7 +39,7 @@ const CUBE_FACES: [Face; 6] = [
 ];
 
 pub struct Chunk {
-    cells: Vec<bool>,
+    pub cells: Vec<u8>,
     vbuf: VertexBuffer,
     positions: Vec<(f32, f32, f32)>,
 }
@@ -123,8 +125,11 @@ impl Chunk {
             .map(move |z| {
                 (0..s).map(move |y| {
                     (0..s).map(move |x| {
-                        (x as f32 * coef).sin() + (y as f32 * coef).sin() + (z as f32 * coef).sin()
-                            > 0.0
+                        if (x as f32 * coef).sin() + (y as f32 * coef).sin() + (z as f32 * coef).sin() > 0.0 {
+                            1
+                        } else {
+                            0
+                        }
                     })
                 })
             })
@@ -133,11 +138,45 @@ impl Chunk {
             .collect::<Vec<_>>();
     }
 
-    pub fn generate_cuboids_close_to(&self, camera_position: Vec3) {
+    pub fn generate_cuboids_close_to(&self, camera_position: Vec3) -> Vec<RaycastCuboid> {
         // generates a list of not-air cuboids for testing ray intersections with.
-        let region_size = 5;
-        let start_offset = region_size / 2;
+        let min = -10;
+        let max = 10;
         println!("[GCCT] Camera position: {}", camera_position);
+        let mut filled_block_count = 0;
+
+        let mut cuboids = vec![];
+
+        for z_off in min .. (max + 1) {
+            for y_off in min .. (max + 1) {
+                for x_off in min .. (max + 1) {
+                    // double conversion is to round down...
+                    let new_x = ((camera_position.x + (x_off as f32)) as i32) as f32;
+                    let new_y = ((camera_position.y + (y_off as f32)) as i32) as f32;
+                    let new_z = ((camera_position.z + (z_off as f32)) as i32) as f32;
+
+                    let out_of_bounds = (new_x < 0.0) || (new_y < 0.0) || (new_z) < 0.0 || (new_x >= (CHUNK_SIZE as f32)) || (new_y >= (CHUNK_SIZE as f32)) || (new_z >= (CHUNK_SIZE as f32));
+                    if !out_of_bounds {
+                        let idx = xyz_to_linear(new_x as usize, new_y as usize, new_z as usize);
+                        if self.cells[idx] > 0 {
+                            // finally, the interesting part: we found a block close to the camera!
+                            // generate a cuboid for it
+                            filled_block_count += 1;
+                            let isometry = Isometry3::from_parts(
+                                Translation3::new(new_x, new_z, new_y),
+                                UnitQuaternion::from_scaled_axis(Vector3::y() * 0.0)
+                            );
+
+                            cuboids.push((isometry, idx));
+                        }
+                    }
+                }
+            }
+        }
+
+        println!("[GCCT] Filled block count: {}", filled_block_count);
+
+        cuboids
     }
 
     fn generate_vertices(&self) -> Vec<Vertex> {
@@ -145,7 +184,7 @@ impl Chunk {
         let max_idx = (CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) - min_idx;
         (min_idx..max_idx)
             .filter_map(|idx| {
-                if self.cells[idx] {
+                if self.cells[idx] > 0 {
                     Some(self.generate_verts_for_cube(idx))
                 } else {
                     None
@@ -158,7 +197,7 @@ impl Chunk {
     fn generate_verts_for_cube(&self, idx: usize) -> Vec<Vertex> {
         // make sure cell is alive and not totally obscured
         let offset = self.positions[idx];
-        if self.cells[idx] && self.count_neighbors(idx) < 26 {
+        if self.cells[idx] > 0 && self.count_neighbors(idx) < 26 {
             CUBE_FACES
                 .iter()
                 .filter_map(move |face| {
@@ -170,10 +209,15 @@ impl Chunk {
                             // determine ao of vertex
                             let offsets = &corner.neighbors;
                             let value = self.get_value_of_vertex(idx, offsets);
+                            let mut color = (value, value, value, 1.0);
+
+                            if self.cells[idx] == 2 {
+                                color = (value, 0.0, 0.0, 1.0);
+                            }
 
                             Vertex {
                                 position: (pos.0 + offset.0, pos.1 + offset.1, pos.2 + offset.2),
-                                color: (value, value, value, 1.0),
+                                color,
                                 normal: face.normal,
                             }
                         }))
@@ -198,7 +242,7 @@ impl Chunk {
             // usize overflows at size > 1500, which isn't so great either.
             // turns out 3d is hard! ;)
             let new_idx = ((base_idx as i32) + idx_offset) as usize;
-            if self.cells[new_idx] {
+            if self.cells[new_idx] > 0 {
                 neighbor_count += 1;
             }
         }
@@ -238,7 +282,7 @@ impl Chunk {
             self.cells[idx - (size * size) - size - 1],
         ];
 
-        neighbors.iter().filter(|&x| *x).count()
+        neighbors.iter().filter(|&x| *x > 0).count()
     }
 }
 
@@ -258,6 +302,10 @@ fn make_empty_vbuf(queue: Arc<vulkano::device::Queue>) -> VertexBuffer {
     vbuf_from_verts(queue, vec![])
 }
 
+fn xyz_to_linear(x: usize, y: usize, z: usize) -> usize {
+    z * (CHUNK_SIZE * CHUNK_SIZE) + y * CHUNK_SIZE + x
+}
+
 impl Offset {
     fn get_idx_offset(&self) -> i32 {
         let sz = CHUNK_SIZE as i32;
@@ -267,9 +315,9 @@ impl Offset {
 }
 
 impl Face {
-    fn is_visible(&self, cells: &[bool], idx: usize) -> bool {
+    fn is_visible(&self, cells: &[u8], idx: usize) -> bool {
         let neighbor_idx = ((idx as i32) + self.facing.get_idx_offset()) as usize;
 
-        !cells[neighbor_idx]
+        cells[neighbor_idx] == 0
     }
 }
