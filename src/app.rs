@@ -1,22 +1,24 @@
+// imports | use's
+extern crate vulkano_win;
+use vulkano::sync::GpuFuture;
+use vulkano_win::VkSurfaceBuild;
+
+extern crate winit;
+use winit::{Event, EventsLoop, KeyboardInput, VirtualKeyCode, WindowBuilder, WindowEvent};
+
 extern crate crossbeam_channel;
 extern crate nalgebra_glm as glm;
-extern crate winit;
-
 use na::{Isometry3, Vector3};
 use ncollide3d::query::{Ray, RayCast};
 use ncollide3d::shape::Cuboid;
 
-extern crate vulkano_win;
-use winit::{Event, EventsLoop, KeyboardInput, VirtualKeyCode, WindowBuilder, WindowEvent};
-
-use vulkano::sync::GpuFuture;
-use vulkano_win::VkSurfaceBuild;
-
 use std::sync::Arc;
 
+// modules
 mod camera;
 mod chunk;
 
+// constants | types
 const SIZE: u32 = 64;
 
 type RaycastCuboid = (Isometry3<f32>, usize);
@@ -32,9 +34,12 @@ impl_vertex!(Vertex, position, color, normal);
 type VertexBuffer = Arc<vulkano::buffer::immutable::ImmutableBuffer<[Vertex]>>;
 
 pub struct App {
+    // everything graphics-related
     vk_stuff: VkStuff,
+    // camera
     cam: camera::Camera,
     keys_pressed: KeysPressed,
+    // all crossbeam channels used
     channels: ChannelStuff,
     // this one doesn't fit - but idk where to put it...
     nearby_cuboids: Vec<RaycastCuboid>,
@@ -42,6 +47,7 @@ pub struct App {
 
 struct VkStuff {
     instance: Arc<vulkano::instance::Instance>,
+    // the physical device itself cannot be stored in a struct.
     physical_device_index: usize,
     events_loop: EventsLoop,
     surface: Arc<vulkano::swapchain::Surface<winit::Window>>,
@@ -55,9 +61,11 @@ struct VkStuff {
     multisampled_color: Arc<vulkano::image::attachment::AttachmentImage>,
     depth_buffer: Arc<vulkano::image::attachment::AttachmentImage<vulkano::format::D16Unorm>>,
     multisampled_depth: Arc<vulkano::image::attachment::AttachmentImage<vulkano::format::D16Unorm>>,
+    // MVP
     model: glm::Mat4,
     view: [[f32; 4]; 4],
     projection: glm::Mat4,
+
     uniform_buffer: vulkano::buffer::cpu_pool::CpuBufferPool<vs::ty::Data>,
     renderpass: Arc<vulkano::framebuffer::RenderPassAbstract + Send + Sync>,
     pipeline: Arc<vulkano::pipeline::GraphicsPipelineAbstract + Send + Sync>,
@@ -65,15 +73,22 @@ struct VkStuff {
     dynamic_state: vulkano::command_buffer::DynamicState,
     vertex_buffer: VertexBuffer,
     previous_frame: Option<Box<GpuFuture>>,
+
+    // stats
     delta: f32,
     frame_count: u32,
 }
 
 struct ChannelStuff {
+    // to end the spawned thread, send anything along this channel
     end_spawned_thread: Option<crossbeam_channel::Sender<bool>>,
+    // vertex buffers the spawned thread generates are put here
     vbuf_recv: Option<crossbeam_channel::Receiver<VertexBuffer>>,
+    // send the camera position here as often as possible
     cam_pos_trans: Option<crossbeam_channel::Sender<nalgebra_glm::Vec3>>,
+    // lets you check which cells the camera intersects with
     nearby_cuboids_recv: Option<crossbeam_channel::Receiver<Vec<RaycastCuboid>>>,
+    // which cell indices to change
     indices_to_change_trans: Option<crossbeam_channel::Sender<Vec<usize>>>,
 }
 
@@ -87,6 +102,7 @@ struct KeysPressed {
 
 impl App {
     pub fn new() -> App {
+        // initializes everything vulkan-related, but doesn't spawn the vbuf-ing thread
         let cam = camera::Camera::default();
 
         let extensions = vulkano_win::required_extensions();
@@ -301,6 +317,7 @@ impl App {
         .expect("failed to create buffer");
         future.flush().unwrap();
 
+        // everything after this is not really vulkano-related
         let keys_pressed = KeysPressed {
             w: false,
             a: false,
@@ -355,6 +372,7 @@ impl App {
     }
 
     pub fn run(&mut self) {
+        // starts the main loop, as well as starting the vbuf-ing thread
         let channels = Self::spawn_thread(self.vk_stuff.queue.clone());
         self.channels.end_spawned_thread = Some(channels.0);
         self.channels.vbuf_recv = Some(channels.1);
@@ -362,27 +380,33 @@ impl App {
         self.channels.nearby_cuboids_recv = Some(channels.3);
         self.channels.indices_to_change_trans = Some(channels.4);
 
+        // record the current time so we can calculate the FPS later
+
         let start = std::time::Instant::now();
         loop {
             let start = std::time::Instant::now();
             let done = self.draw_frame();
             self.vk_stuff.delta = get_elapsed(start);
+
             if done {
+                // quit!
                 println!();
                 println!("---------------------------------------");
                 println!("[MT] Done!");
 
-                // tell the spawned thread to quit
+                // tell the spawned thread to quit as well
                 self.channels
                     .end_spawned_thread
                     .as_mut()
                     .unwrap()
                     .send(true)
                     .unwrap();
+
                 break;
             }
         }
 
+        // print some final stats
         let fps = (self.vk_stuff.frame_count as f32) / get_elapsed(start);
         println!("[MT] Average FPS: {}", fps);
         println!("---------------------------------------");
@@ -398,6 +422,10 @@ impl App {
         crossbeam_channel::Receiver<Vec<RaycastCuboid>>,
         crossbeam_channel::Sender<Vec<usize>>,
     ) {
+        // spawns a thread that generates vertex buffers for the main thread.
+        // returns a list of channels to communicate with it
+
+        // create the channels
         let (should_we_quit_trans, should_we_quit_recv) = crossbeam_channel::bounded(1);
         let (vbuf_trans, vbuf_recv) = crossbeam_channel::bounded(1);
         let (cam_pos_trans, cam_pos_recv) = crossbeam_channel::bounded(1);
@@ -405,15 +433,14 @@ impl App {
         let indices_to_change = crossbeam_channel::bounded(1);
         let indices_to_change_trans: crossbeam_channel::Sender<Vec<usize>> = indices_to_change.0;
         let indices_to_change_recv: crossbeam_channel::Receiver<Vec<usize>> = indices_to_change.1;
+
+        // initialize the chunk
         let mut ch = chunk::Chunk::new(queue.clone());
         ch.update_positions();
+        ch.randomize_state();
 
-        // TODO: make some things update faster than others
+        // spawn the thread
         std::thread::spawn(move || {
-            // maybe use option instead of a dummy value, idk :/
-            let mut camera_pos;
-            ch.randomize_state();
-
             loop {
                 println!();
                 println!("    [ST] Tick! {}", rand::random::<u8>());
@@ -437,7 +464,7 @@ impl App {
                 // and if we did generate raycasting cuboids
                 let result = cam_pos_recv.try_recv();
                 if result.is_ok() {
-                    camera_pos = result.unwrap();
+                    let camera_pos = result.unwrap();
                     let cuboids = ch.generate_cuboids_close_to(camera_pos);
                     // send it - if empty
                     if nearby_cuboids_trans.is_empty() {
@@ -449,13 +476,18 @@ impl App {
                     }
                 }
 
-                // wait until we should change something
-                let result = indices_to_change_recv.recv();
-                let indices_to_change = result.unwrap();
+                // wait until we should change something or 100 ms passes,
+                // because the camera might have moved.
+                let result = indices_to_change_recv.recv_timeout(core::time::Duration::from_millis(100));
+                if result.is_ok() {
+                    let indices_to_change = result.unwrap();
 
-                println!("    [ST] Changing {} cells", indices_to_change.len());
-                for idx in indices_to_change.iter() {
-                    ch.cells[*idx] = 2;
+                    println!("    [ST] Changing {} cells", indices_to_change.len());
+                    for idx in indices_to_change.iter() {
+                        ch.cells[*idx] = 2;
+                    }
+                } else {
+                    println!("    [ST] Timed out waiting for indices to change.");
                 }
             }
         });
