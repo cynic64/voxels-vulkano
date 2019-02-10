@@ -1,5 +1,4 @@
 extern crate rayon;
-use rayon::prelude::*;
 
 use na::{Isometry3, Translation3, UnitQuaternion, Vector3};
 use nalgebra_glm::Vec3;
@@ -40,6 +39,7 @@ pub struct Chunk {
     pub cells: Vec<u8>,
     vbuf: VertexBuffer,
     positions: Vec<(f32, f32, f32)>,
+    nearby_cuboids_offsets: Vec<(i32, i32, i32)>,
 }
 
 struct CubeCorner {
@@ -71,10 +71,13 @@ impl Chunk {
             .flatten()
             .collect();
 
+        let nearby_cuboids_offsets = Self::generate_nearby_cuboids_offsets();
+
         Chunk {
             cells: cells,
             vbuf: make_empty_vbuf(queue),
             positions: vec![],
+            nearby_cuboids_offsets,
         }
     }
 
@@ -142,45 +145,36 @@ impl Chunk {
 
     pub fn generate_cuboids_close_to(&self, camera_position: Vec3) -> Vec<RaycastCuboid> {
         // generates a list of not-air cuboids for testing ray intersections with.
-        let max_dist = 10;
+        self.nearby_cuboids_offsets.iter().filter_map(|(x_off, y_off, z_off)| {
+            // double conversion is to round down...
+            let new_x = ((camera_position.x + (*x_off as f32)) as i32) as f32;
+            let new_y = ((camera_position.z + (*z_off as f32)) as i32) as f32;
+            let new_z = ((camera_position.y + (*y_off as f32)) as i32) as f32;
 
-        let mut cuboids = vec![];
+            let out_of_bounds = (new_x < 0.0)
+                || (new_y < 0.0)
+                || (new_z) < 0.0
+                || (new_x >= (CHUNK_SIZE as f32))
+                || (new_y >= (CHUNK_SIZE as f32))
+                || (new_z >= (CHUNK_SIZE as f32));
+            if !out_of_bounds {
+                let idx = xyz_to_linear(new_x as usize, new_y as usize, new_z as usize);
+                if self.cells[idx] > 0 {
+                    // finally, the interesting part: we found a block close to the camera!
+                    // generate a cuboid for it
+                    let isometry = Isometry3::from_parts(
+                        Translation3::new(new_x, new_z, new_y),
+                        UnitQuaternion::from_scaled_axis(Vector3::y() * 0.0),
+                    );
 
-        // the hard part is making the cuboids in an order such that the closest comes first.
-        // for distance in 0..max_dist
-
-        for z_off in min..(max + 1) {
-            for y_off in min..(max + 1) {
-                for x_off in min..(max + 1) {
-                    // double conversion is to round down...
-                    let new_x = ((camera_position.x + (x_off as f32)) as i32) as f32;
-                    let new_y = ((camera_position.z + (z_off as f32)) as i32) as f32;
-                    let new_z = ((camera_position.y + (y_off as f32)) as i32) as f32;
-
-                    let out_of_bounds = (new_x < 0.0)
-                        || (new_y < 0.0)
-                        || (new_z) < 0.0
-                        || (new_x >= (CHUNK_SIZE as f32))
-                        || (new_y >= (CHUNK_SIZE as f32))
-                        || (new_z >= (CHUNK_SIZE as f32));
-                    if !out_of_bounds {
-                        let idx = xyz_to_linear(new_x as usize, new_y as usize, new_z as usize);
-                        if self.cells[idx] > 0 {
-                            // finally, the interesting part: we found a block close to the camera!
-                            // generate a cuboid for it
-                            let isometry = Isometry3::from_parts(
-                                Translation3::new(new_x, new_z, new_y),
-                                UnitQuaternion::from_scaled_axis(Vector3::y() * 0.0),
-                            );
-
-                            cuboids.push((isometry, idx));
-                        }
-                    }
+                    Some((isometry, idx))
+                } else {
+                    None
                 }
+            } else {
+                None
             }
-        }
-
-        cuboids
+        }).collect::<Vec<_>>()
     }
 
     fn generate_vertices(&self) -> Vec<Vertex> {
@@ -290,6 +284,38 @@ impl Chunk {
         ];
 
         neighbors.iter().filter(|&x| *x > 0).count()
+    }
+
+    fn generate_nearby_cuboids_offsets() -> Vec<(i32, i32, i32)> {
+        let max_dist = 9;
+        let mut offsets = vec![(0, 0, 0)];
+
+        // the hard part is making the cuboids in an order such that the closest comes first.
+        for distance in 1..(max_dist+1) {
+            for offset_1 in -max_dist..(max_dist+1) {
+                for offset_2 in -max_dist..(max_dist+1) {
+                    offsets.push((distance, offset_1, offset_2));
+                    offsets.push((offset_2, distance, offset_1));
+                    offsets.push((offset_1, offset_2, distance));
+                    offsets.push((-distance, offset_1, offset_2));
+                    offsets.push((offset_2, -distance, offset_1));
+                    offsets.push((offset_1, offset_2, -distance));
+                }
+            }
+        }
+
+        // remove duplicates
+        let mut no_duplicates = vec![];
+        for offset in offsets.iter() {
+            if !no_duplicates.contains(&offset) {
+                no_duplicates.push(offset);
+            }
+        }
+
+        println!("Offsets len: {}", no_duplicates.len());
+        println!("Expected len: {}", 19*19*19);
+
+        offsets
     }
 }
 
