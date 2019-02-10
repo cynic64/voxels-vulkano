@@ -368,7 +368,11 @@ impl App {
             let done = self.draw_frame();
             self.vk_stuff.delta = get_elapsed(start);
             if done {
-                println!("Done!");
+                println!();
+                println!("---------------------------------------");
+                println!("[MT] Done!");
+
+                // tell the spawned thread to quit
                 self.channels
                     .end_spawned_thread
                     .as_mut()
@@ -380,7 +384,9 @@ impl App {
         }
 
         let fps = (self.vk_stuff.frame_count as f32) / get_elapsed(start);
-        println!("Average FPS: {}", fps);
+        println!("[MT] Average FPS: {}", fps);
+        println!("---------------------------------------");
+        println!();
     }
 
     fn spawn_thread(
@@ -405,16 +411,16 @@ impl App {
         // TODO: make some things update faster than others
         std::thread::spawn(move || {
             // maybe use option instead of a dummy value, idk :/
-            let mut camera_pos = nalgebra_glm::vec3(0.0, 0.0, 0.0);
+            let mut camera_pos;
             ch.randomize_state();
 
             loop {
                 println!();
-                println!("[ST] Tick! {}", rand::random::<u8>());
+                println!("    [ST] Tick! {}", rand::random::<u8>());
 
                 // check if we should quit
                 if should_we_quit_recv.try_recv().is_ok() {
-                    println!("[ST] Quitting.");
+                    println!("    [ST] Quitting.");
                     break;
                 }
 
@@ -431,32 +437,26 @@ impl App {
                 // and if we did generate raycasting cuboids
                 let result = cam_pos_recv.try_recv();
                 if result.is_ok() {
-                    println!("[ST] Got a new camera position!");
                     camera_pos = result.unwrap();
-                    println!("[ST] Generating cuboids...");
                     let cuboids = ch.generate_cuboids_close_to(camera_pos);
                     // send it - if empty
                     if nearby_cuboids_trans.is_empty() {
                         nearby_cuboids_trans.send(cuboids).unwrap();
                     } else {
-                        println!("[ST] NCT is full - this shouldn't happen :/");
+                        println!(
+                            "    [ST] nearby_cuboids_trans is full - this shouldn't happen :/"
+                        );
                     }
                 }
 
                 // wait until we should change something
                 let result = indices_to_change_recv.recv();
                 let indices_to_change = result.unwrap();
-                println!(
-                    "[ST] we should change these indices: {:?}",
-                    indices_to_change
-                );
+
+                println!("    [ST] Changing {} cells", indices_to_change.len());
                 for idx in indices_to_change.iter() {
                     ch.cells[*idx] = 2;
                 }
-
-                println!("[ST] Camera pos: {}", camera_pos);
-
-                // std::thread::sleep(std::time::Duration::from_millis(100));
             }
         });
 
@@ -544,16 +544,18 @@ impl App {
 
     fn check_channels(&mut self) {
         if self.channels.vbuf_recv.is_some() {
+            // new vertex buffer
             let result = self.channels.vbuf_recv.as_mut().unwrap().try_recv();
             if result.is_ok() {
-                println!("Got a new vertex buffer!");
+                // Got a new vertex buffer
                 self.vk_stuff.vertex_buffer = result.unwrap();
             }
         } else {
-            println!("Vbuf reciever uninitialized!");
+            println!("[MT] Vbuf reciever uninitialized!");
         }
 
         if self.channels.nearby_cuboids_recv.is_some() {
+            // new nearby cuboids
             let result = self
                 .channels
                 .nearby_cuboids_recv
@@ -561,7 +563,6 @@ impl App {
                 .unwrap()
                 .try_recv();
             if result.is_ok() {
-                println!("Got new nearby cuboids :)");
                 self.nearby_cuboids = result.unwrap();
             }
         } else {

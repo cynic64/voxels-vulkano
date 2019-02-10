@@ -144,8 +144,6 @@ impl Chunk {
         // generates a list of not-air cuboids for testing ray intersections with.
         let min = -10;
         let max = 10;
-        println!("[GCCT] Camera position: {}", camera_position);
-        let mut filled_block_count = 0;
 
         let mut cuboids = vec![];
 
@@ -168,7 +166,6 @@ impl Chunk {
                         if self.cells[idx] > 0 {
                             // finally, the interesting part: we found a block close to the camera!
                             // generate a cuboid for it
-                            filled_block_count += 1;
                             let isometry = Isometry3::from_parts(
                                 Translation3::new(new_x, new_z, new_y),
                                 UnitQuaternion::from_scaled_axis(Vector3::y() * 0.0),
@@ -180,8 +177,6 @@ impl Chunk {
                 }
             }
         }
-
-        println!("[GCCT] Filled block count: {}", filled_block_count);
 
         cuboids
     }
