@@ -142,10 +142,12 @@ impl Chunk {
 
     pub fn generate_cuboids_close_to(&self, camera_position: Vec3) -> Vec<RaycastCuboid> {
         // generates a list of not-air cuboids for testing ray intersections with.
-        let min = -10;
-        let max = 10;
+        let max_dist = 10;
 
         let mut cuboids = vec![];
+
+        // the hard part is making the cuboids in an order such that the closest comes first.
+        // for distance in 0..max_dist
 
         for z_off in min..(max + 1) {
             for y_off in min..(max + 1) {

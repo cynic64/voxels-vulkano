@@ -384,15 +384,21 @@ impl App {
 
         let start = std::time::Instant::now();
         loop {
-            let start = std::time::Instant::now();
+            let frame_start = std::time::Instant::now();
             let done = self.draw_frame();
-            self.vk_stuff.delta = get_elapsed(start);
+            self.vk_stuff.delta = get_elapsed(frame_start);
 
             if done {
                 // quit!
                 println!();
                 println!("---------------------------------------");
                 println!("[MT] Done!");
+
+                // print some final stats
+                let fps = (self.vk_stuff.frame_count as f32) / get_elapsed(start);
+                println!("[MT] Average FPS: {}", fps);
+                println!("---------------------------------------");
+                println!();
 
                 // tell the spawned thread to quit as well
                 self.channels
@@ -402,15 +408,11 @@ impl App {
                     .send(true)
                     .unwrap();
 
+                // wait 100 ms before quitting
+                std::thread::sleep(std::time::Duration::from_millis(100));
                 break;
             }
         }
-
-        // print some final stats
-        let fps = (self.vk_stuff.frame_count as f32) / get_elapsed(start);
-        println!("[MT] Average FPS: {}", fps);
-        println!("---------------------------------------");
-        println!();
     }
 
     fn spawn_thread(
@@ -441,6 +443,9 @@ impl App {
 
         // spawn the thread
         std::thread::spawn(move || {
+            let mut time_of_last_change = std::time::Instant::now();
+            let mut should_update_vbuf = true;
+
             loop {
                 println!();
                 println!("    [ST] Tick! {}", rand::random::<u8>());
@@ -451,13 +456,17 @@ impl App {
                     break;
                 }
 
-                // get a new vbuf and send it
-                ch.update_vbuf(queue.clone());
-                let vbuf = ch.get_vbuf();
+                // get a new vbuf and send it, maybe
+                if should_update_vbuf {
+                    ch.update_vbuf(queue.clone());
+                    let vbuf = ch.get_vbuf();
 
-                // only send the vbuf if there's nothing in the channel already
-                if vbuf_trans.is_empty() {
-                    vbuf_trans.send(vbuf).unwrap();
+                    // only send the vbuf if there's nothing in the channel already
+                    if vbuf_trans.is_empty() {
+                        vbuf_trans.send(vbuf).unwrap();
+                        println!("    [ST] Sent vbuf. Time taken: {}", get_elapsed(time_of_last_change));
+                        should_update_vbuf = false;
+                    }
                 }
 
                 // check if we got a cam position update,
@@ -480,12 +489,15 @@ impl App {
                 // because the camera might have moved.
                 let result = indices_to_change_recv.recv_timeout(core::time::Duration::from_millis(100));
                 if result.is_ok() {
+                    time_of_last_change = std::time::Instant::now();
                     let indices_to_change = result.unwrap();
 
                     println!("    [ST] Changing {} cells", indices_to_change.len());
                     for idx in indices_to_change.iter() {
                         ch.cells[*idx] = 2;
                     }
+
+                    should_update_vbuf = true;
                 } else {
                     println!("    [ST] Timed out waiting for indices to change.");
                 }
@@ -934,6 +946,9 @@ impl App {
         for (isom, idx) in self.nearby_cuboids.iter() {
             if cuboid.toi_with_ray(&isom, &ray, true).is_some() {
                 indices_to_change.push(*idx);
+
+                // stop after the first one
+                break;
             }
         }
 
