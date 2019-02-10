@@ -1,10 +1,8 @@
 extern crate rayon;
 use rayon::prelude::*;
 
-use na::{Isometry3, Point3, Vector3, Translation3, Rotation3, UnitQuaternion};
+use na::{Isometry3, Vector3, Translation3, UnitQuaternion};
 use nalgebra_glm::Vec3;
-use ncollide3d::shape::Cuboid;
-use ncollide3d::query::{Ray, RayCast};
 
 use super::Vertex;
 use super::VertexBuffer;
@@ -152,8 +150,8 @@ impl Chunk {
                 for x_off in min .. (max + 1) {
                     // double conversion is to round down...
                     let new_x = ((camera_position.x + (x_off as f32)) as i32) as f32;
-                    let new_y = ((camera_position.y + (y_off as f32)) as i32) as f32;
-                    let new_z = ((camera_position.z + (z_off as f32)) as i32) as f32;
+                    let new_y = ((camera_position.z + (z_off as f32)) as i32) as f32;
+                    let new_z = ((camera_position.y + (y_off as f32)) as i32) as f32;
 
                     let out_of_bounds = (new_x < 0.0) || (new_y < 0.0) || (new_z) < 0.0 || (new_x >= (CHUNK_SIZE as f32)) || (new_y >= (CHUNK_SIZE as f32)) || (new_z >= (CHUNK_SIZE as f32));
                     if !out_of_bounds {
@@ -197,7 +195,7 @@ impl Chunk {
     fn generate_verts_for_cube(&self, idx: usize) -> Vec<Vertex> {
         // make sure cell is alive and not totally obscured
         let offset = self.positions[idx];
-        if self.cells[idx] > 0 && self.count_neighbors(idx) < 26 {
+        if self.cells[idx] > 0 && self.count_neighbors(idx) != 26 {
             CUBE_FACES
                 .iter()
                 .filter_map(move |face| {
@@ -209,7 +207,10 @@ impl Chunk {
                             // determine ao of vertex
                             let offsets = &corner.neighbors;
                             let value = self.get_value_of_vertex(idx, offsets);
-                            let mut color = (value, value, value, 1.0);
+                            let x = (idx % CHUNK_SIZE) as f32 / (CHUNK_SIZE as f32);
+                            let y = (idx / CHUNK_SIZE % CHUNK_SIZE) as f32 / (CHUNK_SIZE as f32);
+                            let z = (idx / (CHUNK_SIZE * CHUNK_SIZE)) as f32 / (CHUNK_SIZE as f32);
+                            let mut color = (value * x, value * y, value * z, 1.0);
 
                             if self.cells[idx] == 2 {
                                 color = (value, 0.0, 0.0, 1.0);
