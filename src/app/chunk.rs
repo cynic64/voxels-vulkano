@@ -1,7 +1,7 @@
 extern crate rayon;
 use rayon::prelude::*;
 
-use na::{Isometry3, Vector3, Translation3, UnitQuaternion};
+use na::{Isometry3, Translation3, UnitQuaternion, Vector3};
 use nalgebra_glm::Vec3;
 
 use super::Vertex;
@@ -123,7 +123,11 @@ impl Chunk {
             .map(move |z| {
                 (0..s).map(move |y| {
                     (0..s).map(move |x| {
-                        if (x as f32 * coef).sin() + (y as f32 * coef).sin() + (z as f32 * coef).sin() > 0.0 {
+                        if (x as f32 * coef).sin()
+                            + (y as f32 * coef).sin()
+                            + (z as f32 * coef).sin()
+                            > 0.0
+                        {
                             1
                         } else {
                             0
@@ -145,15 +149,20 @@ impl Chunk {
 
         let mut cuboids = vec![];
 
-        for z_off in min .. (max + 1) {
-            for y_off in min .. (max + 1) {
-                for x_off in min .. (max + 1) {
+        for z_off in min..(max + 1) {
+            for y_off in min..(max + 1) {
+                for x_off in min..(max + 1) {
                     // double conversion is to round down...
                     let new_x = ((camera_position.x + (x_off as f32)) as i32) as f32;
                     let new_y = ((camera_position.z + (z_off as f32)) as i32) as f32;
                     let new_z = ((camera_position.y + (y_off as f32)) as i32) as f32;
 
-                    let out_of_bounds = (new_x < 0.0) || (new_y < 0.0) || (new_z) < 0.0 || (new_x >= (CHUNK_SIZE as f32)) || (new_y >= (CHUNK_SIZE as f32)) || (new_z >= (CHUNK_SIZE as f32));
+                    let out_of_bounds = (new_x < 0.0)
+                        || (new_y < 0.0)
+                        || (new_z) < 0.0
+                        || (new_x >= (CHUNK_SIZE as f32))
+                        || (new_y >= (CHUNK_SIZE as f32))
+                        || (new_z >= (CHUNK_SIZE as f32));
                     if !out_of_bounds {
                         let idx = xyz_to_linear(new_x as usize, new_y as usize, new_z as usize);
                         if self.cells[idx] > 0 {
@@ -162,7 +171,7 @@ impl Chunk {
                             filled_block_count += 1;
                             let isometry = Isometry3::from_parts(
                                 Translation3::new(new_x, new_z, new_y),
-                                UnitQuaternion::from_scaled_axis(Vector3::y() * 0.0)
+                                UnitQuaternion::from_scaled_axis(Vector3::y() * 0.0),
                             );
 
                             cuboids.push((isometry, idx));

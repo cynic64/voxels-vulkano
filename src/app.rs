@@ -369,7 +369,12 @@ impl App {
             self.vk_stuff.delta = get_elapsed(start);
             if done {
                 println!("Done!");
-                self.channels.end_spawned_thread.as_mut().unwrap().send(true).unwrap();
+                self.channels
+                    .end_spawned_thread
+                    .as_mut()
+                    .unwrap()
+                    .send(true)
+                    .unwrap();
                 break;
             }
         }
