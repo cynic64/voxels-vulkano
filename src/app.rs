@@ -492,6 +492,7 @@ impl App {
             }
         });
 
+        // return channels
         (
             should_we_quit_trans,
             vbuf_recv,
@@ -731,6 +732,8 @@ impl App {
     }
 
     fn rebuild_swapchain(&mut self) {
+        // 100% magic
+
         let physical = vulkano::instance::PhysicalDevice::from_index(
             &self.vk_stuff.instance,
             self.vk_stuff.physical_device_index,
@@ -811,6 +814,7 @@ impl App {
     }
 
     fn rebuild_framebuffers(&mut self) {
+        // also magic
         self.vk_stuff.framebuffers = self
             .vk_stuff
             .images
@@ -850,6 +854,7 @@ impl App {
         };
 
         // long type! :(
+        // means uniform buffer creation can't be put in its own function
         let uniform_set = Arc::new(
             vulkano::descriptor::descriptor_set::PersistentDescriptorSet::start(
                 self.vk_stuff.pipeline.clone(),
@@ -909,17 +914,17 @@ impl App {
         // update our view matrix to match the camera's
         self.vk_stuff.view = self.cam.get_view_matrix().into();
 
-        // send a message to the vbuf'ing thread - if we can
+        // send a message with the camera position to the vbuf'ing thread - if there is space
         if self.channels.cam_pos_trans.is_some() {
             let chan = self.channels.cam_pos_trans.as_mut().unwrap();
             if chan.is_empty() {
                 chan.send(self.cam.position).unwrap();
             }
         } else {
-            println!("[UC] Camera-pos channel uninitialized!");
+            println!("    [UC] Camera-pos channel uninitialized!");
         }
 
-        // check which cube we're pointing at - if at all
+        // check which cube we're pointing at - if any
         let orig = self.cam.position;
         let dir = self.cam.front;
         let cuboid = Cuboid::new(Vector3::new(0.5, 0.5, 0.5));
@@ -932,14 +937,14 @@ impl App {
             }
         }
 
-        // send the indices to change, if we can
+        // send the indices to change, if we can and there are any
         if self.channels.indices_to_change_trans.is_some() {
             let chan = self.channels.indices_to_change_trans.as_mut().unwrap();
-            if chan.is_empty() {
+            if chan.is_empty() && !indices_to_change.is_empty() {
                 chan.send(indices_to_change).unwrap();
             }
         } else {
-            println!("[UC] Indices-to-change channel uninitialized!");
+            println!("    [UC] Indices-to-change channel uninitialized!");
         }
     }
 }
