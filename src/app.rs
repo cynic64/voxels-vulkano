@@ -487,14 +487,15 @@ impl App {
                 if result.is_ok() {
                     let camera_pos = result.unwrap();
                     let cuboids = ch.generate_cuboids_close_to(camera_pos);
+                    // let cuboid_mesh = generate_mesh_for_cuboids(cuboids);
+
                     // send it - if empty
                     if nearby_cuboids_trans.is_empty() {
                         nearby_cuboids_trans.send(cuboids).unwrap();
                     }
                 }
 
-                // wait until we should change something or 100 ms passes,
-                // because the camera might have moved.
+                // change indics in the chunk, maybe
                 let indices_to_change = indices_to_change_recv.try_iter().collect::<Vec<_>>();
                 if !indices_to_change.is_empty() {
                     time_of_last_change = std::time::Instant::now();
@@ -1003,6 +1004,36 @@ impl App {
             println!("    [UC] Indices-to-change channel uninitialized!");
         }
     }
+}
+
+fn generate_mesh_for_cuboids(queue: Arc<vulkano::device::Queue>, cuboids: Vec<RaycastCuboid>) -> VertexBuffer {
+    let vertices = cuboids.iter().map(|cuboid| {
+        let trans_vec = cuboid.0.translation.vector;
+
+        let (x, y, z) = (trans_vec.x, trans_vec.y, trans_vec.z);
+        chunk::CUBE_FACES.iter().map(|face| {
+            let indices = face.indices;
+            let normal = face.normal;
+
+            indices.iter().map(|&index| {
+                let orig_pos = chunk::CUBE_CORNERS[index].position;
+                let position = (orig_pos.0 + x, orig_pos.1 + y, orig_pos.2 + z);
+
+                Vertex {
+                    position,
+                    color: (1.0, 0.0, 1.0, 1.0),
+                    normal,
+                }
+            })
+            .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>()
+    })
+    .flatten()
+    .flatten()
+    .collect::<Vec<_>>();
+
+    chunk::vbuf_from_verts(queue, vertices)
 }
 
 fn get_elapsed(start: std::time::Instant) -> f32 {

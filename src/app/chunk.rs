@@ -14,7 +14,7 @@ const CHUNK_SIZE: usize = 32;
 use super::RaycastCuboid;
 
 #[rustfmt::skip]
-const CUBE_CORNERS: [CubeCorner; 8] = [
+pub const CUBE_CORNERS: [CubeCorner; 8] = [
     CubeCorner { position: (-0.5, -0.5, -0.5), neighbors: [Offset { right: -1, up: -1, front: -1},   Offset { right: -1, up: -1, front:  0},   Offset { right: -1, up:  0, front: -1},   Offset { right: -1, up:  0, front:  0},  Offset { right:  0, up: -1, front: -1},    Offset { right:  0, up: -1, front:  0},   Offset { right:  0, up:  0, front: -1},  Offset { right:  0, up:  0, front:  0} ] },
     CubeCorner { position: ( 0.5, -0.5, -0.5), neighbors: [Offset { right:  0, up: -1, front: -1},   Offset { right:  0, up: -1, front:  0},   Offset { right:  0, up:  0, front: -1},   Offset { right:  0, up:  0, front:  0},  Offset { right:  1, up: -1, front: -1},    Offset { right:  1, up: -1, front:  0},   Offset { right:  1, up:  0, front: -1},  Offset { right:  1, up:  0, front:  0} ] },
     CubeCorner { position: ( 0.5,  0.5, -0.5), neighbors: [Offset { right:  0, up:  0, front: -1},   Offset { right:  0, up:  0, front:  0},   Offset { right:  0, up:  1, front: -1},   Offset { right:  0, up:  1, front:  0},  Offset { right:  1, up:  0, front: -1},    Offset { right:  1, up:  0, front:  0},   Offset { right:  1, up:  1, front: -1},  Offset { right:  1, up:  1, front:  0} ] },
@@ -26,7 +26,7 @@ const CUBE_CORNERS: [CubeCorner; 8] = [
 ];
 
 #[rustfmt::skip]
-const CUBE_FACES: [Face; 6] = [
+pub const CUBE_FACES: [Face; 6] = [
     Face { indices: [0, 1, 3, 3, 1, 2], facing: Offset { right:  0, up:  0, front: -1 }, normal: ( 0.0,  0.0, -1.0) },
     Face { indices: [1, 5, 2, 2, 5, 6], facing: Offset { right:  1, up:  0, front:  0 }, normal: ( 1.0,  0.0,  1.0) },
     Face { indices: [5, 4, 6, 6, 4, 7], facing: Offset { right:  0, up:  0, front:  1 }, normal: ( 0.0,  0.0,  1.0) },
@@ -42,15 +42,15 @@ pub struct Chunk {
     nearby_cuboids_offsets: Vec<(i32, i32, i32)>,
 }
 
-struct CubeCorner {
-    position: (f32, f32, f32),
+pub struct CubeCorner {
+    pub position: (f32, f32, f32),
     neighbors: [Offset; 8],
 }
 
-struct Face {
-    indices: [usize; 6],
+pub struct Face {
+    pub indices: [usize; 6],
     facing: Offset,
-    normal: (f32, f32, f32),
+    pub normal: (f32, f32, f32),
 }
 
 struct Offset {
@@ -64,8 +64,7 @@ impl Chunk {
         let cells = (0..CHUNK_SIZE)
             .map(|_| {
                 (0..CHUNK_SIZE)
-                    .map(|_| (0..CHUNK_SIZE).map(|_| rand::random()).collect::<Vec<_>>())
-                    .collect::<Vec<_>>()
+                    .map(|_| (0..CHUNK_SIZE).map(|_| rand::random()))
             })
             .flatten()
             .flatten()
@@ -198,7 +197,7 @@ impl Chunk {
     fn generate_verts_for_cube(&self, idx: usize) -> Vec<Vertex> {
         // make sure cell is alive and not totally obscured
         let offset = self.positions[idx];
-        if self.cells[idx] > 0 && self.count_neighbors(idx) != 26 {
+        if self.cells[idx] > 0 && self.count_neighbors(idx) < 26 {
             CUBE_FACES
                 .iter()
                 .filter_map(move |face| {
