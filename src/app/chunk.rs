@@ -127,8 +127,8 @@ impl Chunk {
                 (0..s).map(move |y| {
                     (0..s).map(move |x| {
                         if (x as f32 * coef).sin()
-                            + (y as f32 * coef).sin()
-                            + (z as f32 * coef).sin()
+                            + ((y * 2) as f32 * coef).sin()
+                            + (z as f32 * coef * 0.5).sin()
                             > 0.0
                         {
                             1
@@ -145,36 +145,39 @@ impl Chunk {
 
     pub fn generate_cuboids_close_to(&self, camera_position: Vec3) -> Vec<RaycastCuboid> {
         // generates a list of not-air cuboids for testing ray intersections with.
-        self.nearby_cuboids_offsets.iter().filter_map(|(x_off, y_off, z_off)| {
-            // double conversion is to round down...
-            let new_x = ((camera_position.x + (*x_off as f32)) as i32) as f32;
-            let new_y = ((camera_position.z + (*z_off as f32)) as i32) as f32;
-            let new_z = ((camera_position.y + (*y_off as f32)) as i32) as f32;
+        self.nearby_cuboids_offsets
+            .iter()
+            .filter_map(|(x_off, y_off, z_off)| {
+                // double conversion is to round down...
+                let new_x = ((camera_position.x + (*x_off as f32)) as i32) as f32;
+                let new_y = ((camera_position.z + (*z_off as f32)) as i32) as f32;
+                let new_z = ((camera_position.y + (*y_off as f32)) as i32) as f32;
 
-            let out_of_bounds = (new_x < 0.0)
-                || (new_y < 0.0)
-                || (new_z) < 0.0
-                || (new_x >= (CHUNK_SIZE as f32))
-                || (new_y >= (CHUNK_SIZE as f32))
-                || (new_z >= (CHUNK_SIZE as f32));
-            if !out_of_bounds {
-                let idx = xyz_to_linear(new_x as usize, new_y as usize, new_z as usize);
-                if self.cells[idx] > 0 {
-                    // finally, the interesting part: we found a block close to the camera!
-                    // generate a cuboid for it
-                    let isometry = Isometry3::from_parts(
-                        Translation3::new(new_x, new_z, new_y),
-                        UnitQuaternion::from_scaled_axis(Vector3::y() * 0.0),
-                    );
+                let out_of_bounds = (new_x < 0.0)
+                    || (new_y < 0.0)
+                    || (new_z) < 0.0
+                    || (new_x >= (CHUNK_SIZE as f32))
+                    || (new_y >= (CHUNK_SIZE as f32))
+                    || (new_z >= (CHUNK_SIZE as f32));
+                if !out_of_bounds {
+                    let idx = xyz_to_linear(new_x as usize, new_y as usize, new_z as usize);
+                    if self.cells[idx] > 0 {
+                        // finally, the interesting part: we found a block close to the camera!
+                        // generate a cuboid for it
+                        let isometry = Isometry3::from_parts(
+                            Translation3::new(new_x, new_z, new_y),
+                            UnitQuaternion::from_scaled_axis(Vector3::y() * 0.0),
+                        );
 
-                    Some((isometry, idx))
+                        Some((isometry, idx))
+                    } else {
+                        None
+                    }
                 } else {
                     None
                 }
-            } else {
-                None
-            }
-        }).collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>()
     }
 
     fn generate_vertices(&self) -> Vec<Vertex> {
@@ -210,11 +213,11 @@ impl Chunk {
                             let x = (idx % CHUNK_SIZE) as f32 / (CHUNK_SIZE as f32);
                             let y = (idx / CHUNK_SIZE % CHUNK_SIZE) as f32 / (CHUNK_SIZE as f32);
                             let z = (idx / (CHUNK_SIZE * CHUNK_SIZE)) as f32 / (CHUNK_SIZE as f32);
-                            let mut color = (value * x, value * y, value * z, 1.0);
-
-                            if self.cells[idx] == 2 {
-                                color = (value, 0.0, 0.0, 1.0);
-                            }
+                            let color = if self.cells[idx] == 2 {
+                                (value, 0.0, 0.0, 1.0)
+                            } else {
+                                (value * x, value * y, value * z, 1.0)
+                            };
 
                             Vertex {
                                 position: (pos.0 + offset.0, pos.1 + offset.1, pos.2 + offset.2),
@@ -291,9 +294,9 @@ impl Chunk {
         let mut offsets = vec![(0, 0, 0)];
 
         // the hard part is making the cuboids in an order such that the closest comes first.
-        for distance in 1..(max_dist+1) {
-            for offset_1 in -max_dist..(max_dist+1) {
-                for offset_2 in -max_dist..(max_dist+1) {
+        for distance in 1..=max_dist {
+            for offset_1 in -max_dist..=max_dist {
+                for offset_2 in -max_dist..=max_dist {
                     offsets.push((distance, offset_1, offset_2));
                     offsets.push((offset_2, distance, offset_1));
                     offsets.push((offset_1, offset_2, distance));
@@ -313,13 +316,13 @@ impl Chunk {
         }
 
         println!("Offsets len: {}", no_duplicates.len());
-        println!("Expected len: {}", 19*19*19);
+        println!("Expected len: {}", 19 * 19 * 19);
 
         offsets
     }
 }
 
-fn vbuf_from_verts(queue: Arc<vulkano::device::Queue>, vertices: Vec<Vertex>) -> VertexBuffer {
+pub fn vbuf_from_verts(queue: Arc<vulkano::device::Queue>, vertices: Vec<Vertex>) -> VertexBuffer {
     let (buffer, future) = vulkano::buffer::immutable::ImmutableBuffer::from_iter(
         vertices.iter().cloned(),
         vulkano::buffer::BufferUsage::vertex_buffer(),

@@ -69,6 +69,7 @@ struct VkStuff {
     uniform_buffer: vulkano::buffer::cpu_pool::CpuBufferPool<vs::ty::Data>,
     renderpass: Arc<vulkano::framebuffer::RenderPassAbstract + Send + Sync>,
     pipeline: Arc<vulkano::pipeline::GraphicsPipelineAbstract + Send + Sync>,
+    pipeline2: Arc<vulkano::pipeline::GraphicsPipelineAbstract + Send + Sync>,
     framebuffers: Vec<Arc<vulkano::framebuffer::FramebufferAbstract + Send + Sync>>,
     dynamic_state: vulkano::command_buffer::DynamicState,
     vertex_buffer: VertexBuffer,
@@ -89,7 +90,7 @@ struct ChannelStuff {
     // lets you check which cells the camera intersects with
     nearby_cuboids_recv: Option<crossbeam_channel::Receiver<Vec<RaycastCuboid>>>,
     // which cell indices to change
-    indices_to_change_trans: Option<crossbeam_channel::Sender<Vec<usize>>>,
+    indices_to_change_trans: Option<crossbeam_channel::Sender<usize>>,
 }
 
 #[derive(Clone)]
@@ -222,6 +223,8 @@ impl App {
 
         let vs = vs::Shader::load(device.clone()).expect("failed to create shader module");
         let fs = fs::Shader::load(device.clone()).expect("failed to create shader module");
+        let vs2 = vs2::Shader::load(device.clone()).expect("failed to create shader module");
+        let fs2 = fs2::Shader::load(device.clone()).expect("failed to create shader module");
 
         let renderpass = Arc::new(
             single_pass_renderpass!(device.clone(),
@@ -272,6 +275,17 @@ impl App {
                 .render_pass(vulkano::framebuffer::Subpass::from(renderpass.clone(), 0).unwrap())
                 .depth_stencil_simple_depth()
                 .cull_mode_back()
+                .build(device.clone())
+                .unwrap(),
+        );
+        let pipeline2 = Arc::new(
+            vulkano::pipeline::GraphicsPipeline::start()
+                .vertex_input_single_buffer::<Vertex>()
+                .vertex_shader(vs2.main_entry_point(), ())
+                .triangle_list()
+                .viewports_dynamic_scissors_irrelevant(1)
+                .fragment_shader(fs2.main_entry_point(), ())
+                .render_pass(vulkano::framebuffer::Subpass::from(renderpass.clone(), 0).unwrap())
                 .build(device.clone())
                 .unwrap(),
         );
@@ -358,6 +372,7 @@ impl App {
                 uniform_buffer,
                 renderpass,
                 pipeline,
+                pipeline2,
                 framebuffers,
                 dynamic_state,
                 vertex_buffer: vbuf,
@@ -422,7 +437,7 @@ impl App {
         crossbeam_channel::Receiver<VertexBuffer>,
         crossbeam_channel::Sender<nalgebra_glm::Vec3>,
         crossbeam_channel::Receiver<Vec<RaycastCuboid>>,
-        crossbeam_channel::Sender<Vec<usize>>,
+        crossbeam_channel::Sender<usize>,
     ) {
         // spawns a thread that generates vertex buffers for the main thread.
         // returns a list of channels to communicate with it
@@ -432,9 +447,9 @@ impl App {
         let (vbuf_trans, vbuf_recv) = crossbeam_channel::bounded(1);
         let (cam_pos_trans, cam_pos_recv) = crossbeam_channel::bounded(1);
         let (nearby_cuboids_trans, nearby_cuboids_recv) = crossbeam_channel::bounded(1);
-        let indices_to_change = crossbeam_channel::bounded(1);
-        let indices_to_change_trans: crossbeam_channel::Sender<Vec<usize>> = indices_to_change.0;
-        let indices_to_change_recv: crossbeam_channel::Receiver<Vec<usize>> = indices_to_change.1;
+        let indices_to_change = crossbeam_channel::unbounded();
+        let indices_to_change_trans: crossbeam_channel::Sender<usize> = indices_to_change.0;
+        let indices_to_change_recv: crossbeam_channel::Receiver<usize> = indices_to_change.1;
 
         // initialize the chunk
         let mut ch = chunk::Chunk::new(queue.clone());
@@ -447,9 +462,6 @@ impl App {
             let mut should_update_vbuf = true;
 
             loop {
-                println!();
-                println!("    [ST] Tick! {}", rand::random::<u8>());
-
                 // check if we should quit
                 if should_we_quit_recv.try_recv().is_ok() {
                     println!("    [ST] Quitting.");
@@ -478,28 +490,21 @@ impl App {
                     // send it - if empty
                     if nearby_cuboids_trans.is_empty() {
                         nearby_cuboids_trans.send(cuboids).unwrap();
-                    } else {
-                        println!(
-                            "    [ST] nearby_cuboids_trans is full - this shouldn't happen :/"
-                        );
                     }
                 }
 
                 // wait until we should change something or 100 ms passes,
                 // because the camera might have moved.
-                let result = indices_to_change_recv.recv_timeout(core::time::Duration::from_millis(100));
-                if result.is_ok() {
+                let indices_to_change = indices_to_change_recv.try_iter().collect::<Vec<_>>();
+                if !indices_to_change.is_empty() {
                     time_of_last_change = std::time::Instant::now();
-                    let indices_to_change = result.unwrap();
-
                     println!("    [ST] Changing {} cells", indices_to_change.len());
-                    for idx in indices_to_change.iter() {
-                        ch.cells[*idx] = 2;
+
+                    for idx in indices_to_change {
+                        ch.cells[idx] = 2;
                     }
 
                     should_update_vbuf = true;
-                } else {
-                    println!("    [ST] Timed out waiting for indices to change.");
                 }
             }
         });
@@ -878,6 +883,29 @@ impl App {
             .unwrap(),
         );
 
+        let uniform_buffer_subbuffer2 = {
+            let uniform_data = vs::ty::Data {
+                world: glm::Mat4::identity().into(),
+                view: glm::Mat4::identity().into(),
+                proj: glm::Mat4::identity().into(),
+            };
+
+            self.vk_stuff.uniform_buffer.next(uniform_data).unwrap()
+        };
+
+        // long type! :(
+        // means uniform buffer creation can't be put in its own function
+        let uniform_set2 = Arc::new(
+            vulkano::descriptor::descriptor_set::PersistentDescriptorSet::start(
+                self.vk_stuff.pipeline.clone(),
+                0,
+            )
+            .add_buffer(uniform_buffer_subbuffer2)
+            .unwrap()
+            .build()
+            .unwrap(),
+        );
+
         vulkano::command_buffer::AutoCommandBufferBuilder::primary_one_time_submit(
             self.vk_stuff.device.clone(),
             self.vk_stuff.queue.family(),
@@ -899,6 +927,34 @@ impl App {
             &self.vk_stuff.dynamic_state,
             vec![self.vk_stuff.vertex_buffer.clone()],
             uniform_set.clone(),
+            (),
+        )
+        .unwrap()
+        .draw(
+            self.vk_stuff.pipeline2.clone(),
+            &self.vk_stuff.dynamic_state,
+            vec![chunk::vbuf_from_verts(
+                self.vk_stuff.queue.clone(),
+                vec![
+                    Vertex {
+                        position: (-0.01, -0.01, 0.0),
+                        color: (1.0, 1.0, 1.0, 1.0),
+                        normal: (0.0, 0.0, 0.0),
+                    },
+                    Vertex {
+                        position: (-0.01, 0.01, 0.4),
+                        color: (1.0, 1.0, 1.0, 1.0),
+                        normal: (0.0, 0.0, 0.0),
+                    },
+                    Vertex {
+                        position: (0.01, 0.01, 0.7),
+                        color: (1.0, 1.0, 1.0, 1.0),
+                        normal: (0.0, 0.0, 0.0),
+                    },
+                ],
+            )],
+            // uniform_set2.clone(),
+            (),
             (),
         )
         .unwrap()
@@ -941,22 +997,31 @@ impl App {
         let dir = self.cam.front;
         let cuboid = Cuboid::new(Vector3::new(0.5, 0.5, 0.5));
         let ray = Ray::new(orig.into(), dir);
-        let mut indices_to_change = vec![];
+        let mut index_pointing_at = None;
+        let mut time_of_intersecion = None;
 
         for (isom, idx) in self.nearby_cuboids.iter() {
-            if cuboid.toi_with_ray(&isom, &ray, true).is_some() {
-                indices_to_change.push(*idx);
+            let toi = cuboid.toi_with_ray(&isom, &ray, true);
+            if toi.is_some() {
+                index_pointing_at = Some(*idx);
+                time_of_intersecion = Some(toi.unwrap());
 
                 // stop after the first one
                 break;
             }
         }
 
-        // send the indices to change, if we can and there are any
+        // let mut index_to_change: = None;
+        if index_pointing_at.is_some() {
+            // figure out which face the cursor is over
+            println!("time of intersection: {:?}", time_of_intersecion);
+        }
+
+        // send the index to change, if there is one
         if self.channels.indices_to_change_trans.is_some() {
             let chan = self.channels.indices_to_change_trans.as_mut().unwrap();
-            if chan.is_empty() && !indices_to_change.is_empty() {
-                chan.send(indices_to_change).unwrap();
+            if index_pointing_at.is_some() {
+                chan.send(index_pointing_at.unwrap()).unwrap();
             }
         } else {
             println!("    [UC] Indices-to-change channel uninitialized!");
@@ -1017,6 +1082,45 @@ void main() {
     vec3 regular_color = v_color.xyz;
 
     f_color = vec4(mix(dark_color, regular_color, brightness), 1.0);
+}
+"]
+    #[allow(dead_code)]
+    struct Dummy;
+}
+
+mod vs2 {
+    #[derive(VulkanoShader)]
+    #[ty = "vertex"]
+    #[src = "
+#version 450
+
+layout(location = 0) in vec3 position;
+layout(location = 1) in vec4 color;
+layout(location = 2) in vec3 normal;
+
+layout(location = 0) out vec4 v_color;
+
+void main() {
+    v_color = color;
+    gl_Position = vec4(position, 1.0);
+}
+"]
+    #[allow(dead_code)]
+    struct Dummy;
+}
+
+mod fs2 {
+    #[derive(VulkanoShader)]
+    #[ty = "fragment"]
+    #[src = "
+#version 450
+
+layout(location = 0) in vec4 v_color;
+
+layout(location = 0) out vec4 f_color;
+
+void main() {
+    f_color = v_color;
 }
 "]
     #[allow(dead_code)]

@@ -9,8 +9,8 @@ pub struct Camera {
     right: Vec3,
     world_up: Vec3,
     // pitch and yaw are in radians
-    pitch: f32,
-    yaw: f32,
+    pub pitch: f32,
+    pub yaw: f32,
     movement_speed: f32,
     mouse_sens: f32,
 }
