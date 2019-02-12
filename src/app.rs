@@ -883,29 +883,6 @@ impl App {
             .unwrap(),
         );
 
-        let uniform_buffer_subbuffer2 = {
-            let uniform_data = vs::ty::Data {
-                world: glm::Mat4::identity().into(),
-                view: glm::Mat4::identity().into(),
-                proj: glm::Mat4::identity().into(),
-            };
-
-            self.vk_stuff.uniform_buffer.next(uniform_data).unwrap()
-        };
-
-        // long type! :(
-        // means uniform buffer creation can't be put in its own function
-        let uniform_set2 = Arc::new(
-            vulkano::descriptor::descriptor_set::PersistentDescriptorSet::start(
-                self.vk_stuff.pipeline.clone(),
-                0,
-            )
-            .add_buffer(uniform_buffer_subbuffer2)
-            .unwrap()
-            .build()
-            .unwrap(),
-        );
-
         vulkano::command_buffer::AutoCommandBufferBuilder::primary_one_time_submit(
             self.vk_stuff.device.clone(),
             self.vk_stuff.queue.family(),
@@ -937,23 +914,22 @@ impl App {
                 self.vk_stuff.queue.clone(),
                 vec![
                     Vertex {
-                        position: (-0.01, -0.01, 0.0),
+                        position: (0.0, -0.01, 0.0),
                         color: (1.0, 1.0, 1.0, 1.0),
                         normal: (0.0, 0.0, 0.0),
                     },
                     Vertex {
-                        position: (-0.01, 0.01, 0.4),
+                        position: (-0.01, 0.01, 0.0),
                         color: (1.0, 1.0, 1.0, 1.0),
                         normal: (0.0, 0.0, 0.0),
                     },
                     Vertex {
-                        position: (0.01, 0.01, 0.7),
+                        position: (0.01, 0.01, 0.0),
                         color: (1.0, 1.0, 1.0, 1.0),
                         normal: (0.0, 0.0, 0.0),
                     },
                 ],
             )],
-            // uniform_set2.clone(),
             (),
             (),
         )
