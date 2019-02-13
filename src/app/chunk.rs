@@ -333,7 +333,7 @@ pub fn vbuf_from_verts(queue: Arc<vulkano::device::Queue>, vertices: Vec<Vertex>
     buffer
 }
 
-fn make_empty_vbuf(queue: Arc<vulkano::device::Queue>) -> VertexBuffer {
+pub fn make_empty_vbuf(queue: Arc<vulkano::device::Queue>) -> VertexBuffer {
     vbuf_from_verts(queue, vec![])
 }
 

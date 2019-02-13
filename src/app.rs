@@ -70,6 +70,7 @@ struct VkStuff {
     renderpass: Arc<vulkano::framebuffer::RenderPassAbstract + Send + Sync>,
     pipeline: Arc<vulkano::pipeline::GraphicsPipelineAbstract + Send + Sync>,
     pipeline2: Arc<vulkano::pipeline::GraphicsPipelineAbstract + Send + Sync>,
+    pipeline3: Arc<vulkano::pipeline::GraphicsPipelineAbstract + Send + Sync>,
     framebuffers: Vec<Arc<vulkano::framebuffer::FramebufferAbstract + Send + Sync>>,
     dynamic_state: vulkano::command_buffer::DynamicState,
     vertex_buffer: VertexBuffer,
@@ -78,6 +79,9 @@ struct VkStuff {
     // stats
     delta: f32,
     frame_count: u32,
+
+    // ???
+    nearby_cuboids_mesh: VertexBuffer,
 }
 
 struct ChannelStuff {
@@ -88,7 +92,7 @@ struct ChannelStuff {
     // send the camera position here as often as possible
     cam_pos_trans: Option<crossbeam_channel::Sender<nalgebra_glm::Vec3>>,
     // lets you check which cells the camera intersects with
-    nearby_cuboids_recv: Option<crossbeam_channel::Receiver<Vec<RaycastCuboid>>>,
+    nearby_cuboids_recv: Option<crossbeam_channel::Receiver<(Vec<RaycastCuboid>, VertexBuffer)>>,
     // which cell indices to change
     indices_to_change_trans: Option<crossbeam_channel::Sender<usize>>,
 }
@@ -289,6 +293,20 @@ impl App {
                 .build(device.clone())
                 .unwrap(),
         );
+        let pipeline3 = Arc::new(
+            vulkano::pipeline::GraphicsPipeline::start()
+                .vertex_input_single_buffer::<Vertex>()
+                .vertex_shader(vs.main_entry_point(), ())
+                .line_list()
+                .viewports_dynamic_scissors_irrelevant(1)
+                .fragment_shader(fs.main_entry_point(), ())
+                .render_pass(vulkano::framebuffer::Subpass::from(renderpass.clone(), 0).unwrap())
+                // .depth_stencil_simple_depth()
+                // .cull_mode_back()
+                .build(device.clone())
+                .unwrap(),
+        );
+
         let framebuffers = Vec::new();
 
         let recreate_swapchain = false;
@@ -358,7 +376,7 @@ impl App {
                 surface,
                 dimensions,
                 device,
-                queue,
+                queue: queue.clone(),
                 swapchain_caps: caps,
                 swapchain,
                 recreate_swapchain,
@@ -373,11 +391,13 @@ impl App {
                 renderpass,
                 pipeline,
                 pipeline2,
+                pipeline3,
                 framebuffers,
                 dynamic_state,
                 vertex_buffer: vbuf,
                 delta,
                 frame_count: 0,
+                nearby_cuboids_mesh: chunk::make_empty_vbuf(queue.clone()),
             },
             cam,
             keys_pressed,
@@ -436,7 +456,7 @@ impl App {
         crossbeam_channel::Sender<bool>,
         crossbeam_channel::Receiver<VertexBuffer>,
         crossbeam_channel::Sender<nalgebra_glm::Vec3>,
-        crossbeam_channel::Receiver<Vec<RaycastCuboid>>,
+        crossbeam_channel::Receiver<(Vec<RaycastCuboid>, VertexBuffer)>,
         crossbeam_channel::Sender<usize>,
     ) {
         // spawns a thread that generates vertex buffers for the main thread.
@@ -476,7 +496,10 @@ impl App {
                     // only send the vbuf if there's nothing in the channel already
                     if vbuf_trans.is_empty() {
                         vbuf_trans.send(vbuf).unwrap();
-                        println!("    [ST] Sent vbuf. Time taken: {}", get_elapsed(time_of_last_change));
+                        println!(
+                            "    [ST] Sent vbuf. Time taken: {}",
+                            get_elapsed(time_of_last_change)
+                        );
                         should_update_vbuf = false;
                     }
                 }
@@ -487,15 +510,15 @@ impl App {
                 if result.is_ok() {
                     let camera_pos = result.unwrap();
                     let cuboids = ch.generate_cuboids_close_to(camera_pos);
-                    // let cuboid_mesh = generate_mesh_for_cuboids(cuboids);
+                    let cuboids_mesh = generate_mesh_for_cuboids(queue.clone(), &cuboids);
 
                     // send it - if empty
                     if nearby_cuboids_trans.is_empty() {
-                        nearby_cuboids_trans.send(cuboids).unwrap();
+                        nearby_cuboids_trans.send((cuboids, cuboids_mesh)).unwrap();
                     }
                 }
 
-                // change indics in the chunk, maybe
+                // change indices in the chunk, maybe
                 let indices_to_change = indices_to_change_recv.try_iter().collect::<Vec<_>>();
                 if !indices_to_change.is_empty() {
                     time_of_last_change = std::time::Instant::now();
@@ -614,7 +637,9 @@ impl App {
                 .unwrap()
                 .try_recv();
             if result.is_ok() {
-                self.nearby_cuboids = result.unwrap();
+                let isometries_and_mesh = result.unwrap();
+                self.nearby_cuboids = isometries_and_mesh.0;
+                self.vk_stuff.nearby_cuboids_mesh = isometries_and_mesh.1;
             }
         } else {
             println!("Nearby cuboids reciever uninitialized!");
@@ -909,6 +934,14 @@ impl App {
         )
         .unwrap()
         .draw(
+            self.vk_stuff.pipeline3.clone(),
+            &self.vk_stuff.dynamic_state,
+            vec![self.vk_stuff.nearby_cuboids_mesh.clone()],
+            uniform_set.clone(),
+            (),
+        )
+        .unwrap()
+        .draw(
             self.vk_stuff.pipeline2.clone(),
             &self.vk_stuff.dynamic_state,
             vec![chunk::vbuf_from_verts(
@@ -974,22 +1007,19 @@ impl App {
         let dir = self.cam.front;
         let cuboid = Cuboid::new(Vector3::new(0.5, 0.5, 0.5));
         let ray = Ray::new(orig.into(), dir);
-        let mut index_pointing_at = None;
+        let mut indices_pointing_at = vec![];
         let mut time_of_intersecion = None;
 
         for (isom, idx) in self.nearby_cuboids.iter() {
             let toi = cuboid.toi_with_ray(&isom, &ray, true);
             if toi.is_some() {
-                index_pointing_at = Some(*idx);
+                indices_pointing_at.push(idx);
                 time_of_intersecion = Some(toi.unwrap());
-
-                // stop after the first one
-                break;
             }
         }
 
         // let mut index_to_change: = None;
-        if index_pointing_at.is_some() {
+        if !indices_pointing_at.is_empty() {
             // figure out which face the cursor is over
             println!("time of intersection: {:?}", time_of_intersecion);
         }
@@ -997,8 +1027,8 @@ impl App {
         // send the index to change, if there is one
         if self.channels.indices_to_change_trans.is_some() {
             let chan = self.channels.indices_to_change_trans.as_mut().unwrap();
-            if index_pointing_at.is_some() {
-                chan.send(index_pointing_at.unwrap()).unwrap();
+            for index in indices_pointing_at {
+                chan.send(*index).unwrap();
             }
         } else {
             println!("    [UC] Indices-to-change channel uninitialized!");
@@ -1006,32 +1036,43 @@ impl App {
     }
 }
 
-fn generate_mesh_for_cuboids(queue: Arc<vulkano::device::Queue>, cuboids: Vec<RaycastCuboid>) -> VertexBuffer {
-    let vertices = cuboids.iter().map(|cuboid| {
-        let trans_vec = cuboid.0.translation.vector;
+fn generate_mesh_for_cuboids(
+    queue: Arc<vulkano::device::Queue>,
+    cuboids: &[RaycastCuboid],
+) -> VertexBuffer {
+    let vertices = cuboids
+        .iter()
+        .enumerate()
+        .map(|(idx, cuboid)| {
+            let trans_vec = cuboid.0.translation.vector;
 
-        let (x, y, z) = (trans_vec.x, trans_vec.y, trans_vec.z);
-        chunk::CUBE_FACES.iter().map(|face| {
-            let indices = face.indices;
-            let normal = face.normal;
+            let (x, y, z) = (trans_vec.x, trans_vec.y, trans_vec.z);
+            chunk::CUBE_FACES
+                .iter()
+                .map(|face| {
+                    let indices = face.indices;
+                    let normal = face.normal;
 
-            indices.iter().map(|&index| {
-                let orig_pos = chunk::CUBE_CORNERS[index].position;
-                let position = (orig_pos.0 + x, orig_pos.1 + y, orig_pos.2 + z);
+                    indices
+                        .iter()
+                        .map(|&index| {
+                            let orig_pos = chunk::CUBE_CORNERS[index].position;
+                            let position = (orig_pos.0 + x, orig_pos.1 + y, orig_pos.2 + z);
+                            let value = (idx as f32) / 6859.0;
 
-                Vertex {
-                    position,
-                    color: (1.0, 0.0, 1.0, 1.0),
-                    normal,
-                }
-            })
-            .collect::<Vec<_>>()
+                            Vertex {
+                                position,
+                                color: (value, value, value, 1.0),
+                                normal,
+                            }
+                        })
+                        .collect::<Vec<_>>()
+                })
+                .collect::<Vec<_>>()
         })
-        .collect::<Vec<_>>()
-    })
-    .flatten()
-    .flatten()
-    .collect::<Vec<_>>();
+        .flatten()
+        .flatten()
+        .collect::<Vec<_>>();
 
     chunk::vbuf_from_verts(queue, vertices)
 }
