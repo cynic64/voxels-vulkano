@@ -43,6 +43,8 @@ pub struct App {
     channels: ChannelStuff,
     // this one doesn't fit - but idk where to put it...
     nearby_cuboids: Vec<RaycastCuboid>,
+    // for debugging, mostly
+    draw_overlay: bool,
 }
 
 struct VkStuff {
@@ -403,6 +405,7 @@ impl App {
             keys_pressed,
             channels,
             nearby_cuboids: vec![],
+            draw_overlay: false,
         }
     }
 
@@ -647,6 +650,7 @@ impl App {
         let mut y_movement = 0.0;
 
         let mut keys_pressed = self.keys_pressed.clone();
+        let mut toggle_overlay = false;
 
         self.vk_stuff.events_loop.poll_events(|event| {
             if let Event::WindowEvent { event, .. } = event {
@@ -744,6 +748,17 @@ impl App {
                             },
                         ..
                     } => keys_pressed.d = false,
+
+                    // toggle overlay with O
+                    WindowEvent::KeyboardInput {
+                        input:
+                            KeyboardInput {
+                                virtual_keycode: Some(VirtualKeyCode::O),
+                                state: winit::ElementState::Pressed,
+                                ..
+                            },
+                        ..
+                    } => toggle_overlay = true,
                     _ => {}
                 }
             }
@@ -762,6 +777,11 @@ impl App {
 
         // update keys_pressed
         self.keys_pressed = keys_pressed;
+
+        // toggle overlay
+        if toggle_overlay {
+            self.draw_overlay = !self.draw_overlay;
+        }
 
         done
     }
@@ -901,7 +921,7 @@ impl App {
             .unwrap(),
         );
 
-        vulkano::command_buffer::AutoCommandBufferBuilder::primary_one_time_submit(
+        let mut cmd_buffer = vulkano::command_buffer::AutoCommandBufferBuilder::primary_one_time_submit(
             self.vk_stuff.device.clone(),
             self.vk_stuff.queue.family(),
         )
@@ -917,6 +937,7 @@ impl App {
             ],
         )
         .unwrap()
+        // draw the world - always
         .draw(
             self.vk_stuff.pipeline.clone(),
             &self.vk_stuff.dynamic_state,
@@ -924,16 +945,22 @@ impl App {
             uniform_set.clone(),
             (),
         )
-        .unwrap()
-        .draw(
-            self.vk_stuff.pipeline3.clone(),
-            &self.vk_stuff.dynamic_state,
-            vec![self.vk_stuff.nearby_cuboids_mesh.clone()],
-            uniform_set.clone(),
-            (),
-        )
-        .unwrap()
-        .draw(
+        .unwrap();
+
+        // draw the overlay - maybe
+        if self.draw_overlay {
+            cmd_buffer = cmd_buffer.draw(
+                self.vk_stuff.pipeline3.clone(),
+                &self.vk_stuff.dynamic_state,
+                vec![self.vk_stuff.nearby_cuboids_mesh.clone()],
+                uniform_set.clone(),
+                (),
+            )
+            .unwrap()
+        }
+
+        // draw the crosshair and build - always
+        cmd_buffer.draw(
             self.vk_stuff.pipeline2.clone(),
             &self.vk_stuff.dynamic_state,
             vec![chunk::vbuf_from_verts(
