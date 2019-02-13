@@ -520,7 +520,7 @@ impl App {
                 let indices_to_change = indices_to_change_recv.try_iter().collect::<Vec<_>>();
                 if !indices_to_change.is_empty() {
                     for idx in indices_to_change {
-                        ch.cells[idx] = 2;
+                        ch.cells[idx] = 1;
                     }
 
                     should_update_vbuf = true;
@@ -651,6 +651,7 @@ impl App {
 
         let mut keys_pressed = self.keys_pressed.clone();
         let mut toggle_overlay = false;
+        let mut clicked = false;
 
         self.vk_stuff.events_loop.poll_events(|event| {
             if let Event::WindowEvent { event, .. } = event {
@@ -673,7 +674,12 @@ impl App {
                         );
                         x_movement = x_diff as f32;
                         y_movement = y_diff as f32;
-                    }
+                    },
+
+                    WindowEvent::MouseInput { button: winit::MouseButton::Left, state: winit::ElementState::Pressed, .. } => {
+                        clicked = true
+                    },
+
                     // WASD down
                     WindowEvent::KeyboardInput {
                         input:
@@ -781,6 +787,11 @@ impl App {
         // toggle overlay
         if toggle_overlay {
             self.draw_overlay = !self.draw_overlay;
+        }
+
+        // click
+        if clicked {
+            self.place_block()
         }
 
         done
@@ -1020,7 +1031,9 @@ impl App {
         } else {
             println!("    [UC] Camera-pos channel uninitialized!");
         }
+    }
 
+    fn place_block(&mut self) {
         // check which cube we're pointing at - if any
         let orig = self.cam.position;
         let dir = self.cam.front;
@@ -1047,14 +1060,28 @@ impl App {
             }
         }
 
-        // send the index to change, if there is one
-        if self.channels.indices_to_change_trans.is_some() {
-            if index_pointing_at.is_some() {
+        // if the camera is pointing at something, figure out where a block should be placed
+        if index_pointing_at.is_some() {
+            // use the camera's direction to extrapolate the point of the ray just before the intersection
+            let toi = index_pointing_at.unwrap().1 - 0.1;
+            let x_offset = dir.x * toi;
+            let y_offset = dir.y * toi;
+            let z_offset = dir.z * toi;
+
+            // + 0.5 to round
+            let new_x = ((orig.x + x_offset) + 0.5) as usize;
+            let new_y = ((orig.y + y_offset) + 0.5) as usize;
+            let new_z = ((orig.z + z_offset) + 0.5) as usize;
+
+            // new_x, new_y, and new_z are now the coordinates of the block we want to change,
+            // just convert to an index now
+            let idx_to_change = chunk::xyz_to_linear(new_x, new_z, new_y);
+
+            // send it
+            if self.channels.indices_to_change_trans.is_some() {
                 let chan = self.channels.indices_to_change_trans.as_mut().unwrap();
-                chan.send(*index_pointing_at.unwrap().0).unwrap();
+                chan.send(idx_to_change).unwrap();
             }
-        } else {
-            println!("    [UC] Indices-to-change channel uninitialized!");
         }
     }
 }

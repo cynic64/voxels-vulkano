@@ -337,7 +337,7 @@ pub fn make_empty_vbuf(queue: Arc<vulkano::device::Queue>) -> VertexBuffer {
     vbuf_from_verts(queue, vec![])
 }
 
-fn xyz_to_linear(x: usize, y: usize, z: usize) -> usize {
+pub fn xyz_to_linear(x: usize, y: usize, z: usize) -> usize {
     z * (CHUNK_SIZE * CHUNK_SIZE) + y * CHUNK_SIZE + x
 }
 
