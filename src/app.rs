@@ -301,8 +301,8 @@ impl App {
                 .viewports_dynamic_scissors_irrelevant(1)
                 .fragment_shader(fs.main_entry_point(), ())
                 .render_pass(vulkano::framebuffer::Subpass::from(renderpass.clone(), 0).unwrap())
-                // .depth_stencil_simple_depth()
-                // .cull_mode_back()
+                .depth_stencil_simple_depth()
+                .cull_mode_back()
                 .build(device.clone())
                 .unwrap(),
         );
@@ -478,7 +478,6 @@ impl App {
 
         // spawn the thread
         std::thread::spawn(move || {
-            let mut time_of_last_change = std::time::Instant::now();
             let mut should_update_vbuf = true;
 
             loop {
@@ -496,10 +495,6 @@ impl App {
                     // only send the vbuf if there's nothing in the channel already
                     if vbuf_trans.is_empty() {
                         vbuf_trans.send(vbuf).unwrap();
-                        println!(
-                            "    [ST] Sent vbuf. Time taken: {}",
-                            get_elapsed(time_of_last_change)
-                        );
                         should_update_vbuf = false;
                     }
                 }
@@ -521,9 +516,6 @@ impl App {
                 // change indices in the chunk, maybe
                 let indices_to_change = indices_to_change_recv.try_iter().collect::<Vec<_>>();
                 if !indices_to_change.is_empty() {
-                    time_of_last_change = std::time::Instant::now();
-                    println!("    [ST] Changing {} cells", indices_to_change.len());
-
                     for idx in indices_to_change {
                         ch.cells[idx] = 2;
                     }
@@ -1007,28 +999,32 @@ impl App {
         let dir = self.cam.front;
         let cuboid = Cuboid::new(Vector3::new(0.5, 0.5, 0.5));
         let ray = Ray::new(orig.into(), dir);
-        let mut indices_pointing_at = vec![];
-        let mut time_of_intersecion = None;
+        let mut index_pointing_at = None;
 
         for (isom, idx) in self.nearby_cuboids.iter() {
             let toi = cuboid.toi_with_ray(&isom, &ray, true);
             if toi.is_some() {
-                indices_pointing_at.push(idx);
-                time_of_intersecion = Some(toi.unwrap());
+                // there is an intersection!
+                // if index_pointing_at is None, make this cuboid index_pointing_at
+                if index_pointing_at.is_none() {
+                    // also store the time of intersection for later
+                    index_pointing_at = Some((idx, toi.unwrap()));
+                } else {
+                    // the camera is pointing at multiple things. see whether this cuboid is closer,
+                    // and only if that is the case change index_pointing_at.
+                    if toi.unwrap() < index_pointing_at.unwrap().1 {
+                        // this cuboid is closer
+                        index_pointing_at = Some((idx, toi.unwrap()));
+                    }
+                }
             }
-        }
-
-        // let mut index_to_change: = None;
-        if !indices_pointing_at.is_empty() {
-            // figure out which face the cursor is over
-            println!("time of intersection: {:?}", time_of_intersecion);
         }
 
         // send the index to change, if there is one
         if self.channels.indices_to_change_trans.is_some() {
-            let chan = self.channels.indices_to_change_trans.as_mut().unwrap();
-            for index in indices_pointing_at {
-                chan.send(*index).unwrap();
+            if index_pointing_at.is_some() {
+                let chan = self.channels.indices_to_change_trans.as_mut().unwrap();
+                chan.send(*index_pointing_at.unwrap().0).unwrap();
             }
         } else {
             println!("    [UC] Indices-to-change channel uninitialized!");
