@@ -3,15 +3,8 @@ extern crate rayon;
 use na::{Isometry3, Translation3, UnitQuaternion, Vector3};
 use nalgebra_glm::Vec3;
 
-use super::super::Vertex;
-use super::VertexBuffer;
+use super::super::super::utils::*;
 use std::sync::Arc;
-
-use vulkano::sync::GpuFuture;
-
-const CHUNK_SIZE: usize = 32;
-
-use super::RaycastCuboid;
 
 #[rustfmt::skip]
 pub const CUBE_CORNERS: [CubeCorner; 8] = [
@@ -74,7 +67,7 @@ impl Chunk {
 
         Chunk {
             cells: cells,
-            vbuf: super::super::make_empty_vbuf(queue),
+            vbuf: make_empty_vbuf(queue),
             positions: vec![],
             nearby_cuboids_offsets,
         }
@@ -159,7 +152,7 @@ impl Chunk {
                     || (new_y >= (CHUNK_SIZE as f32))
                     || (new_z >= (CHUNK_SIZE as f32));
                 if !out_of_bounds {
-                    let idx = super::xyz_to_linear(new_x as usize, new_y as usize, new_z as usize);
+                    let idx = xyz_to_linear(new_x as usize, new_y as usize, new_z as usize);
                     if self.cells[idx] > 0 {
                         // finally, the interesting part: we found a block close to the camera!
                         // generate a cuboid for it
@@ -319,18 +312,6 @@ impl Chunk {
 
         offsets
     }
-}
-
-pub fn vbuf_from_verts(queue: Arc<vulkano::device::Queue>, vertices: Vec<Vertex>) -> VertexBuffer {
-    let (buffer, future) = vulkano::buffer::immutable::ImmutableBuffer::from_iter(
-        vertices.iter().cloned(),
-        vulkano::buffer::BufferUsage::vertex_buffer(),
-        queue.clone(),
-    )
-    .unwrap();
-    future.flush().unwrap();
-
-    buffer
 }
 
 impl Offset {

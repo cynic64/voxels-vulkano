@@ -17,8 +17,7 @@ pub struct Camera {
 
 impl Camera {
     pub fn default() -> Camera {
-        use super::SIZE;
-        let position = vec3((SIZE / 2) as f32, (SIZE / 2) as f32, (SIZE / 2) as f32);
+        let position = vec3(0.0, 0.0, 0.0);
         let pitch = 0.0;
         let yaw = 0.0;
         let front = normalize(&vec3(

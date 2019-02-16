@@ -8,7 +8,7 @@ use winit::{Event, EventsLoop, KeyboardInput, VirtualKeyCode, WindowBuilder, Win
 
 extern crate crossbeam_channel;
 extern crate nalgebra_glm as glm;
-use na::{Isometry3, Vector3};
+use na::Vector3;
 use ncollide3d::query::{Ray, RayCast};
 use ncollide3d::shape::Cuboid;
 
@@ -17,21 +17,7 @@ use std::sync::Arc;
 // modules
 mod camera;
 mod world;
-
-// constants | types
-const SIZE: u32 = 64;
-
-type RaycastCuboid = (Isometry3<f32>, usize);
-
-#[derive(Copy, Clone, Debug)]
-pub struct Vertex {
-    position: (f32, f32, f32),
-    color: (f32, f32, f32, f32),
-    normal: (f32, f32, f32),
-}
-impl_vertex!(Vertex, position, color, normal);
-
-type VertexBuffer = Arc<vulkano::buffer::immutable::ImmutableBuffer<[Vertex]>>;
+use super::utils::*;
 
 pub struct App {
     // everything graphics-related
@@ -1073,7 +1059,7 @@ impl App {
 
             // new_x, new_y, and new_z are now the coordinates of the block we want to change,
             // just convert to an index now
-            let idx_to_change = world::xyz_to_linear(new_x, new_z, new_y);
+            let idx_to_change = xyz_to_linear(new_x, new_z, new_y);
 
             // send it
             if self.channels.indices_to_change_trans.is_some() {
@@ -1123,26 +1109,6 @@ fn generate_mesh_for_cuboids(
         .collect::<Vec<_>>();
 
     vbuf_from_verts(queue, vertices)
-}
-
-fn get_elapsed(start: std::time::Instant) -> f32 {
-    start.elapsed().as_secs() as f32 + start.elapsed().subsec_nanos() as f32 / 1_000_000_000.0
-}
-
-pub fn make_empty_vbuf(queue: Arc<vulkano::device::Queue>) -> VertexBuffer {
-    vbuf_from_verts(queue, vec![])
-}
-
-pub fn vbuf_from_verts(queue: Arc<vulkano::device::Queue>, vertices: Vec<Vertex>) -> VertexBuffer {
-    let (buffer, future) = vulkano::buffer::immutable::ImmutableBuffer::from_iter(
-        vertices.iter().cloned(),
-        vulkano::buffer::BufferUsage::vertex_buffer(),
-        queue.clone(),
-    )
-    .unwrap();
-    future.flush().unwrap();
-
-    buffer
 }
 
 mod vs {

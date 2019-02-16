@@ -9,6 +9,8 @@ extern crate nalgebra as na;
 mod app;
 use self::app::App;
 
+pub mod utils;
+
 fn main() {
     let mut app = App::new();
     app.run();

@@ -1,13 +1,11 @@
 // the world is made of multiple chunks.
 
+use super::super::utils::*;
+
 pub mod chunk;
 
 use std::sync::Arc;
-use super::VertexBuffer;
 use nalgebra_glm::Vec3;
-use super::RaycastCuboid;
-
-const CHUNK_SIZE: usize = 32;
 
 pub struct World {
     pub chunks: Vec<chunk::Chunk>,
@@ -43,8 +41,4 @@ impl World {
         // again - only returns cuboids from first chunk
         self.chunks[0].generate_cuboids_close_to(camera_pos)
     }
-}
-
-pub fn xyz_to_linear(x: usize, y: usize, z: usize) -> usize {
-    z * (CHUNK_SIZE * CHUNK_SIZE) + y * CHUNK_SIZE + x
 }
