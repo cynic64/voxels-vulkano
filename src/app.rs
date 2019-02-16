@@ -17,6 +17,7 @@ use std::sync::Arc;
 // modules
 mod camera;
 mod chunk;
+mod world;
 
 // constants | types
 const SIZE: u32 = 64;
