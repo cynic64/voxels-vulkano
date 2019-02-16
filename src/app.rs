@@ -1063,7 +1063,7 @@ impl App {
         // if the camera is pointing at something, figure out where a block should be placed
         if index_pointing_at.is_some() {
             // use the camera's direction to extrapolate the point of the ray just before the intersection
-            let toi = index_pointing_at.unwrap().1 - 0.1;
+            let toi = index_pointing_at.unwrap().1 - 0.01;
             let x_offset = dir.x * toi;
             let y_offset = dir.y * toi;
             let z_offset = dir.z * toi;

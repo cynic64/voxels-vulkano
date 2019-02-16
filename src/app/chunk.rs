@@ -126,8 +126,8 @@ impl Chunk {
                 (0..s).map(move |y| {
                     (0..s).map(move |x| {
                         if (x as f32 * coef).sin()
-                            + ((y * 2) as f32 * coef).sin()
-                            + (z as f32 * coef * 0.5).sin()
+                            + ((y / 2) as f32 * coef).sin()
+                            + ((z / 3) as f32 * coef).sin()
                             > 0.0
                         {
                             1
