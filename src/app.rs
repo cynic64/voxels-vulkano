@@ -16,7 +16,6 @@ use std::sync::Arc;
 
 // modules
 mod camera;
-mod chunk;
 mod world;
 
 // constants | types
@@ -400,7 +399,7 @@ impl App {
                 vertex_buffer: vbuf,
                 delta,
                 frame_count: 0,
-                nearby_cuboids_mesh: chunk::make_empty_vbuf(queue.clone()),
+                nearby_cuboids_mesh: make_empty_vbuf(queue.clone()),
             },
             cam,
             keys_pressed,
@@ -475,10 +474,8 @@ impl App {
         let indices_to_change_trans: crossbeam_channel::Sender<usize> = indices_to_change.0;
         let indices_to_change_recv: crossbeam_channel::Receiver<usize> = indices_to_change.1;
 
-        // initialize the chunk
-        let mut ch = chunk::Chunk::new(queue.clone());
-        ch.update_positions();
-        ch.randomize_state();
+        // initialize the world
+        let mut world = world::World::new(queue.clone());
 
         // spawn the thread
         std::thread::spawn(move || {
@@ -493,8 +490,8 @@ impl App {
 
                 // get a new vbuf and send it, maybe
                 if should_update_vbuf {
-                    ch.update_vbuf(queue.clone());
-                    let vbuf = ch.get_vbuf();
+                    world.update_vbufs();
+                    let vbuf = world.get_vbuf();
 
                     // only send the vbuf if there's nothing in the channel already
                     if vbuf_trans.is_empty() {
@@ -508,7 +505,7 @@ impl App {
                 let result = cam_pos_recv.try_recv();
                 if result.is_ok() {
                     let camera_pos = result.unwrap();
-                    let cuboids = ch.generate_cuboids_close_to(camera_pos);
+                    let cuboids = world.generate_nearby_cuboids(camera_pos);
                     let cuboids_mesh = generate_mesh_for_cuboids(queue.clone(), &cuboids);
 
                     // send it - if empty
@@ -521,7 +518,7 @@ impl App {
                 let indices_to_change = indices_to_change_recv.try_iter().collect::<Vec<_>>();
                 if !indices_to_change.is_empty() {
                     for idx in indices_to_change {
-                        ch.cells[idx] = 1;
+                        world.chunks[0].cells[idx] = 1;
                     }
 
                     should_update_vbuf = true;
@@ -975,7 +972,7 @@ impl App {
         cmd_buffer.draw(
             self.vk_stuff.pipeline2.clone(),
             &self.vk_stuff.dynamic_state,
-            vec![chunk::vbuf_from_verts(
+            vec![vbuf_from_verts(
                 self.vk_stuff.queue.clone(),
                 vec![
                     Vertex {
@@ -1076,7 +1073,7 @@ impl App {
 
             // new_x, new_y, and new_z are now the coordinates of the block we want to change,
             // just convert to an index now
-            let idx_to_change = chunk::xyz_to_linear(new_x, new_z, new_y);
+            let idx_to_change = world::xyz_to_linear(new_x, new_z, new_y);
 
             // send it
             if self.channels.indices_to_change_trans.is_some() {
@@ -1098,7 +1095,7 @@ fn generate_mesh_for_cuboids(
             let trans_vec = cuboid.0.translation.vector;
 
             let (x, y, z) = (trans_vec.x, trans_vec.y, trans_vec.z);
-            chunk::CUBE_FACES
+            world::chunk::CUBE_FACES
                 .iter()
                 .map(|face| {
                     let indices = face.indices;
@@ -1107,7 +1104,7 @@ fn generate_mesh_for_cuboids(
                     indices
                         .iter()
                         .map(|&index| {
-                            let orig_pos = chunk::CUBE_CORNERS[index].position;
+                            let orig_pos = world::chunk::CUBE_CORNERS[index].position;
                             let position = (orig_pos.0 + x, orig_pos.1 + y, orig_pos.2 + z);
                             let value = (idx as f32) / 6859.0;
 
@@ -1125,11 +1122,27 @@ fn generate_mesh_for_cuboids(
         .flatten()
         .collect::<Vec<_>>();
 
-    chunk::vbuf_from_verts(queue, vertices)
+    vbuf_from_verts(queue, vertices)
 }
 
 fn get_elapsed(start: std::time::Instant) -> f32 {
     start.elapsed().as_secs() as f32 + start.elapsed().subsec_nanos() as f32 / 1_000_000_000.0
+}
+
+pub fn make_empty_vbuf(queue: Arc<vulkano::device::Queue>) -> VertexBuffer {
+    vbuf_from_verts(queue, vec![])
+}
+
+pub fn vbuf_from_verts(queue: Arc<vulkano::device::Queue>, vertices: Vec<Vertex>) -> VertexBuffer {
+    let (buffer, future) = vulkano::buffer::immutable::ImmutableBuffer::from_iter(
+        vertices.iter().cloned(),
+        vulkano::buffer::BufferUsage::vertex_buffer(),
+        queue.clone(),
+    )
+    .unwrap();
+    future.flush().unwrap();
+
+    buffer
 }
 
 mod vs {

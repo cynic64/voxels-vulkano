@@ -3,7 +3,7 @@ extern crate rayon;
 use na::{Isometry3, Translation3, UnitQuaternion, Vector3};
 use nalgebra_glm::Vec3;
 
-use super::Vertex;
+use super::super::Vertex;
 use super::VertexBuffer;
 use std::sync::Arc;
 
@@ -74,7 +74,7 @@ impl Chunk {
 
         Chunk {
             cells: cells,
-            vbuf: make_empty_vbuf(queue),
+            vbuf: super::super::make_empty_vbuf(queue),
             positions: vec![],
             nearby_cuboids_offsets,
         }
@@ -159,7 +159,7 @@ impl Chunk {
                     || (new_y >= (CHUNK_SIZE as f32))
                     || (new_z >= (CHUNK_SIZE as f32));
                 if !out_of_bounds {
-                    let idx = xyz_to_linear(new_x as usize, new_y as usize, new_z as usize);
+                    let idx = super::xyz_to_linear(new_x as usize, new_y as usize, new_z as usize);
                     if self.cells[idx] > 0 {
                         // finally, the interesting part: we found a block close to the camera!
                         // generate a cuboid for it
@@ -331,14 +331,6 @@ pub fn vbuf_from_verts(queue: Arc<vulkano::device::Queue>, vertices: Vec<Vertex>
     future.flush().unwrap();
 
     buffer
-}
-
-pub fn make_empty_vbuf(queue: Arc<vulkano::device::Queue>) -> VertexBuffer {
-    vbuf_from_verts(queue, vec![])
-}
-
-pub fn xyz_to_linear(x: usize, y: usize, z: usize) -> usize {
-    z * (CHUNK_SIZE * CHUNK_SIZE) + y * CHUNK_SIZE + x
 }
 
 impl Offset {
