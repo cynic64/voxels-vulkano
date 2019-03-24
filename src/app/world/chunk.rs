@@ -30,8 +30,13 @@ pub const CUBE_FACES: [Face; 6] = [
 
 pub struct Chunk {
     pub cells: Vec<u8>,
+    // coordinates of the corner of this chunk in 3d space
+    offset: (f32, f32, f32),
+    // the vertex buffer is cached here
     vbuf: VertexBuffer,
+    // a list of the 3d coordinates, listed in the same order as cells
     positions: Vec<(f32, f32, f32)>,
+    // 3d offsets for which cells are considered "nearby"
     nearby_cuboids_offsets: Vec<(i32, i32, i32)>,
 }
 
@@ -53,7 +58,7 @@ struct Offset {
 }
 
 impl Chunk {
-    pub fn new(queue: Arc<vulkano::device::Queue>) -> Self {
+    pub fn new(queue: Arc<vulkano::device::Queue>, offset: (f32, f32, f32)) -> Self {
         let cells = (0..CHUNK_SIZE)
             .map(|_| {
                 (0..CHUNK_SIZE)
@@ -67,6 +72,7 @@ impl Chunk {
 
         Chunk {
             cells: cells,
+            offset,
             vbuf: make_empty_vbuf(queue),
             positions: vec![],
             nearby_cuboids_offsets,
@@ -135,33 +141,53 @@ impl Chunk {
             .collect::<Vec<_>>();
     }
 
-    pub fn generate_cuboids_close_to(&self, camera_position: Vec3) -> Vec<RaycastCuboid> {
+    pub fn generate_cuboids_close_to(&self, camera_position: Vec3) -> Vec<CuboidOffset> {
         // generates a list of not-air cuboids for testing ray intersections with.
+        // first, subtract the out chunk offset from the camera position so that the indices are in the same range
+        // basically, we get around the problem of the chunks having offsets by pretending that all chunks are in the center
+        // and that the camera is somewhere in the center chunk.
+
+        // these camera positions are relative to 0 0 0 in our chunk,
+        // so even if the chunk is faaaaar offset from the center,
+        // the camera could be in the same area and therefore have coordinates within bounds.
+        let relative_cam_x = camera_position.x - self.offset.0;
+        let relative_cam_y = camera_position.y - self.offset.1;
+        let relative_cam_z = camera_position.z - self.offset.2;
+
+        // now check whether the camera is nearby any filled cells in the current chunk.
+        // to do this, we iterate through the pre-generated list nearby_cuboids_offsets
+        // and offset the rounded camera position by every position in there, then check
+        // that position to see if it is filled.
+        // if it is, we generate a CuboidOffset for it which is later returned.
         self.nearby_cuboids_offsets
             .iter()
             .filter_map(|(x_off, y_off, z_off)| {
                 // double conversion is to round down...
-                let new_x = ((camera_position.x + (*x_off as f32)) as i32) as f32;
-                let new_y = ((camera_position.z + (*z_off as f32)) as i32) as f32;
-                let new_z = ((camera_position.y + (*y_off as f32)) as i32) as f32;
+                let new_rel_x = ((relative_cam_x + (*x_off as f32)) as i32) as f32;
+                let new_rel_y = ((relative_cam_z + (*z_off as f32)) as i32) as f32;
+                let new_rel_z = ((relative_cam_y + (*y_off as f32)) as i32) as f32;
 
-                let out_of_bounds = (new_x < 0.0)
-                    || (new_y < 0.0)
-                    || (new_z) < 0.0
-                    || (new_x >= (CHUNK_SIZE as f32))
-                    || (new_y >= (CHUNK_SIZE as f32))
-                    || (new_z >= (CHUNK_SIZE as f32));
+                let out_of_bounds = (new_rel_x < 0.0)
+                    || (new_rel_y < 0.0)
+                    || (new_rel_z) < 0.0
+                    || (new_rel_x >= (CHUNK_SIZE as f32))
+                    || (new_rel_y >= (CHUNK_SIZE as f32))
+                    || (new_rel_z >= (CHUNK_SIZE as f32));
                 if !out_of_bounds {
-                    let idx = xyz_to_linear(new_x as usize, new_y as usize, new_z as usize);
+                    let idx = xyz_to_linear(new_rel_x as usize, new_rel_y as usize, new_rel_z as usize);
                     if self.cells[idx] > 0 {
                         // finally, the interesting part: we found a block close to the camera!
                         // generate a cuboid for it
+                        let new_absolute_x = new_rel_x + self.offset.0;
+                        let new_absolute_y = new_rel_y + self.offset.1;
+                        let new_absolute_z = new_rel_z + self.offset.2;
+
                         let isometry = Isometry3::from_parts(
-                            Translation3::new(new_x, new_z, new_y),
+                            Translation3::new(new_absolute_x, new_absolute_z, new_absolute_y),
                             UnitQuaternion::from_scaled_axis(Vector3::y() * 0.0),
                         );
 
-                        Some((isometry, idx))
+                        Some(isometry)
                     } else {
                         None
                     }
@@ -202,9 +228,9 @@ impl Chunk {
                             // determine ao of vertex
                             let offsets = &corner.neighbors;
                             let value = self.get_value_of_vertex(idx, offsets);
-                            let x = (idx % CHUNK_SIZE) as f32 / (CHUNK_SIZE as f32);
-                            let y = (idx / CHUNK_SIZE % CHUNK_SIZE) as f32 / (CHUNK_SIZE as f32);
-                            let z = (idx / (CHUNK_SIZE * CHUNK_SIZE)) as f32 / (CHUNK_SIZE as f32);
+                            let x = (offset.0 as f32) / (CHUNK_SIZE as f32);
+                            let y = (offset.1 as f32) / (CHUNK_SIZE as f32);
+                            let z = (offset.2 as f32) / (CHUNK_SIZE as f32);
                             let color = if self.cells[idx] == 2 {
                                 (value, 0.0, 0.0, 1.0)
                             } else {
@@ -212,7 +238,7 @@ impl Chunk {
                             };
 
                             Vertex {
-                                position: (pos.0 + offset.0, pos.1 + offset.1, pos.2 + offset.2),
+                                position: (pos.0 + offset.0 + self.offset.0, pos.1 + offset.1 + self.offset.1, pos.2 + offset.2 + self.offset.2),
                                 color,
                                 normal: face.normal,
                             }

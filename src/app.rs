@@ -28,7 +28,7 @@ pub struct App {
     // all crossbeam channels used
     channels: ChannelStuff,
     // this one doesn't fit - but idk where to put it...
-    nearby_cuboids: Vec<RaycastCuboid>,
+    nearby_cuboids: Vec<CuboidOffset>,
     // for debugging, mostly
     draw_overlay: bool,
 }
@@ -61,7 +61,7 @@ struct VkStuff {
     pipeline3: Arc<vulkano::pipeline::GraphicsPipelineAbstract + Send + Sync>,
     framebuffers: Vec<Arc<vulkano::framebuffer::FramebufferAbstract + Send + Sync>>,
     dynamic_state: vulkano::command_buffer::DynamicState,
-    vertex_buffer: VertexBuffer,
+    vertex_buffers: Vec<VertexBuffer>,
     previous_frame: Option<Box<GpuFuture>>,
 
     // stats
@@ -76,13 +76,13 @@ struct ChannelStuff {
     // to end the spawned thread, send anything along this channel
     end_spawned_thread: Option<crossbeam_channel::Sender<bool>>,
     // vertex buffers the spawned thread generates are put here
-    vbuf_recv: Option<crossbeam_channel::Receiver<VertexBuffer>>,
+    vbuf_recv: Option<crossbeam_channel::Receiver<Vec<VertexBuffer>>>,
     // send the camera position here as often as possible
     cam_pos_trans: Option<crossbeam_channel::Sender<nalgebra_glm::Vec3>>,
     // lets you check which cells the camera intersects with
-    nearby_cuboids_recv: Option<crossbeam_channel::Receiver<(Vec<RaycastCuboid>, VertexBuffer)>>,
+    nearby_cuboids_recv: Option<crossbeam_channel::Receiver<(Vec<CuboidOffset>, VertexBuffer)>>,
     // which cell indices to change
-    indices_to_change_trans: Option<crossbeam_channel::Sender<usize>>,
+    coordinates_to_change_trans: Option<crossbeam_channel::Sender<Coordinate>>,
 }
 
 #[derive(Clone)]
@@ -311,32 +311,6 @@ impl App {
             scissors: None,
         };
 
-        let (vbuf, future) = vulkano::buffer::immutable::ImmutableBuffer::from_iter(
-            vec![
-                Vertex {
-                    position: (100.0, 100.0, -100.0),
-                    color: (1.0, 0.0, 0.0, 1.0),
-                    normal: (1.0, 1.0, 1.0),
-                },
-                Vertex {
-                    position: (100.0, -100.0, 100.0),
-                    color: (0.0, 1.0, 0.0, 1.0),
-                    normal: (-1.0, 1.0, 1.0),
-                },
-                Vertex {
-                    position: (-100.0, -100.0, 0.5),
-                    color: (0.0, 0.0, 1.0, 1.0),
-                    normal: (1.0, 1.0, -1.0),
-                },
-            ]
-            .iter()
-            .cloned(),
-            vulkano::buffer::BufferUsage::vertex_buffer(),
-            queue.clone(),
-        )
-        .expect("failed to create buffer");
-        future.flush().unwrap();
-
         // everything after this is not really vulkano-related
         let keys_pressed = KeysPressed {
             w: false,
@@ -352,7 +326,7 @@ impl App {
             vbuf_recv: None,
             cam_pos_trans: None,
             nearby_cuboids_recv: None,
-            indices_to_change_trans: None,
+            coordinates_to_change_trans: None,
         };
 
         App {
@@ -382,7 +356,7 @@ impl App {
                 pipeline3,
                 framebuffers,
                 dynamic_state,
-                vertex_buffer: vbuf,
+                vertex_buffers: vec![],
                 delta,
                 frame_count: 0,
                 nearby_cuboids_mesh: make_empty_vbuf(queue.clone()),
@@ -402,7 +376,7 @@ impl App {
         self.channels.vbuf_recv = Some(channels.1);
         self.channels.cam_pos_trans = Some(channels.2);
         self.channels.nearby_cuboids_recv = Some(channels.3);
-        self.channels.indices_to_change_trans = Some(channels.4);
+        self.channels.coordinates_to_change_trans = Some(channels.4);
 
         // record the current time so we can calculate the FPS later
 
@@ -442,11 +416,11 @@ impl App {
     fn spawn_thread(
         queue: Arc<vulkano::device::Queue>,
     ) -> (
-        crossbeam_channel::Sender<bool>,
-        crossbeam_channel::Receiver<VertexBuffer>,
-        crossbeam_channel::Sender<nalgebra_glm::Vec3>,
-        crossbeam_channel::Receiver<(Vec<RaycastCuboid>, VertexBuffer)>,
-        crossbeam_channel::Sender<usize>,
+        crossbeam_channel::Sender<bool>,                                          // should we quit: send true / false
+        crossbeam_channel::Receiver<Vec<VertexBuffer>>,                           // vertex buffers: recieve Vec<VertexBuffer>
+        crossbeam_channel::Sender<nalgebra_glm::Vec3>,                            // camera position: send na::Vec3
+        crossbeam_channel::Receiver<(Vec<CuboidOffset>, VertexBuffer)>,           // nearby cuboids / nearby cuboids mesh: recieve Vec<CuboidOffset> and VertexBuffer
+        crossbeam_channel::Sender<Coordinate>,                                    // coordinates to change: send Vec<Coordinate>
     ) {
         // spawns a thread that generates vertex buffers for the main thread.
         // returns a list of channels to communicate with it
@@ -456,9 +430,9 @@ impl App {
         let (vbuf_trans, vbuf_recv) = crossbeam_channel::bounded(1);
         let (cam_pos_trans, cam_pos_recv) = crossbeam_channel::bounded(1);
         let (nearby_cuboids_trans, nearby_cuboids_recv) = crossbeam_channel::bounded(1);
-        let indices_to_change = crossbeam_channel::unbounded();
-        let indices_to_change_trans: crossbeam_channel::Sender<usize> = indices_to_change.0;
-        let indices_to_change_recv: crossbeam_channel::Receiver<usize> = indices_to_change.1;
+        let coordinates_to_change = crossbeam_channel::unbounded();
+        let coordinates_to_change_trans: crossbeam_channel::Sender<Coordinate> = coordinates_to_change.0;
+        let coordinates_to_change_recv: crossbeam_channel::Receiver<Coordinate> = coordinates_to_change.1;
 
         // initialize the world
         let mut world = world::World::new(queue.clone());
@@ -474,14 +448,14 @@ impl App {
                     break;
                 }
 
-                // get a new vbuf and send it, maybe
+                // get new vbufs and send them, maybe
                 if should_update_vbuf {
                     world.update_vbufs();
-                    let vbuf = world.get_vbuf();
+                    let vbufs = world.get_vbufs();
 
                     // only send the vbuf if there's nothing in the channel already
                     if vbuf_trans.is_empty() {
-                        vbuf_trans.send(vbuf).unwrap();
+                        vbuf_trans.send(vbufs).unwrap();
                         should_update_vbuf = false;
                     }
                 }
@@ -500,11 +474,11 @@ impl App {
                     }
                 }
 
-                // change indices in the chunk, maybe
-                let indices_to_change = indices_to_change_recv.try_iter().collect::<Vec<_>>();
-                if !indices_to_change.is_empty() {
-                    for idx in indices_to_change {
-                        world.chunks[0].cells[idx] = 1;
+                // change indices in the world, maybe
+                let coordinates_to_change = coordinates_to_change_recv.try_iter().collect::<Vec<_>>();
+                if !coordinates_to_change.is_empty() {
+                    for coordinate in coordinates_to_change {
+                        world.change_coordinate(coordinate, 1);
                     }
 
                     should_update_vbuf = true;
@@ -518,7 +492,7 @@ impl App {
             vbuf_recv,
             cam_pos_trans,
             nearby_cuboids_recv,
-            indices_to_change_trans,
+            coordinates_to_change_trans,
         )
     }
 
@@ -601,7 +575,7 @@ impl App {
             let result = self.channels.vbuf_recv.as_mut().unwrap().try_recv();
             if result.is_ok() {
                 // Got a new vertex buffer
-                self.vk_stuff.vertex_buffer = result.unwrap();
+                self.vk_stuff.vertex_buffers = result.unwrap();
             }
         } else {
             println!("[MT] Vbuf reciever uninitialized!");
@@ -931,16 +905,20 @@ impl App {
                 vulkano::format::ClearValue::None,
             ],
         )
-        .unwrap()
-        // draw the world - always
-        .draw(
-            self.vk_stuff.pipeline.clone(),
-            &self.vk_stuff.dynamic_state,
-            vec![self.vk_stuff.vertex_buffer.clone()],
-            uniform_set.clone(),
-            (),
-        )
         .unwrap();
+
+        // draw all vertex buffers of the world
+        for vbuf in self.vk_stuff.vertex_buffers.iter() {
+            cmd_buffer = cmd_buffer
+                .draw(
+                    self.vk_stuff.pipeline.clone(),
+                    &self.vk_stuff.dynamic_state,
+                    vec![vbuf.clone()],
+                    uniform_set.clone(),
+                    (),
+                )
+                .unwrap();
+        }
 
         // draw the overlay - maybe
         if self.draw_overlay {
@@ -1019,52 +997,63 @@ impl App {
 
     fn place_block(&mut self) {
         // check which cube we're pointing at - if any
+
+        // we calculate where to place the cube by first checking for intersections
+        // with all neaby cuboids. The distance to the closest intersection is recorded,
+        // and a ray slightly shorter than that is shot from the camera in the same
+        // direction as the camera to figure out the position of the new block.
+
         let orig = self.cam.position;
         let dir = self.cam.front;
         let cuboid = Cuboid::new(Vector3::new(0.5, 0.5, 0.5));
         let ray = Ray::new(orig.into(), dir);
-        let mut index_pointing_at = None;
 
-        for (isom, idx) in self.nearby_cuboids.iter() {
-            let toi = cuboid.toi_with_ray(&isom, &ray, true);
+        // this is where the closest distance is recorded
+        let mut closest_toi = None;
+
+        for nearby_cuboid_isometry in self.nearby_cuboids.iter() {
+            let toi = cuboid.toi_with_ray(&nearby_cuboid_isometry, &ray, true);
             if toi.is_some() {
                 // there is an intersection!
-                // if index_pointing_at is None, make this cuboid index_pointing_at
-                if index_pointing_at.is_none() {
+                // if closest_toi is None, make this cuboid closest_toi
+                if closest_toi.is_none() {
                     // also store the time of intersection for later
-                    index_pointing_at = Some((idx, toi.unwrap()));
+                    closest_toi = Some(toi.unwrap());
                 } else {
                     // the camera is pointing at multiple things. see whether this cuboid is closer,
-                    // and only if that is the case change index_pointing_at.
-                    if toi.unwrap() < index_pointing_at.unwrap().1 {
+                    // and only if that is the case change closest_toi.
+                    if toi.unwrap() < closest_toi.unwrap() {
                         // this cuboid is closer
-                        index_pointing_at = Some((idx, toi.unwrap()));
+                        closest_toi = Some(toi.unwrap());
                     }
                 }
             }
         }
 
         // if the camera is pointing at something, figure out where a block should be placed
-        if index_pointing_at.is_some() {
+        if closest_toi.is_some() {
             // use the camera's direction to extrapolate the point of the ray just before the intersection
-            let toi = index_pointing_at.unwrap().1 - 0.01;
+            let toi = closest_toi.unwrap() - 0.01;
             let x_offset = dir.x * toi;
             let y_offset = dir.y * toi;
             let z_offset = dir.z * toi;
 
             // + 0.5 to round
-            let new_x = ((orig.x + x_offset) + 0.5) as usize;
-            let new_y = ((orig.y + y_offset) + 0.5) as usize;
-            let new_z = ((orig.z + z_offset) + 0.5) as usize;
+            let new_x = ((orig.x + x_offset) + 0.5) as i32;
+            let new_y = ((orig.y + y_offset) + 0.5) as i32;
+            let new_z = ((orig.z + z_offset) + 0.5) as i32;
 
-            // new_x, new_y, and new_z are now the coordinates of the block we want to change,
-            // just convert to an index now
-            let idx_to_change = xyz_to_linear(new_x, new_z, new_y);
+            // new_x, new_y, and new_z are now the coordinates of the block we want to change.
+            let coordinate = Coordinate {
+                x: new_x,
+                y: new_y,
+                z: new_z,
+            };
 
             // send it
-            if self.channels.indices_to_change_trans.is_some() {
-                let chan = self.channels.indices_to_change_trans.as_mut().unwrap();
-                chan.send(idx_to_change).unwrap();
+            if self.channels.coordinates_to_change_trans.is_some() {
+                let chan = self.channels.coordinates_to_change_trans.as_mut().unwrap();
+                chan.send(coordinate).unwrap();
             }
         }
     }
@@ -1072,13 +1061,12 @@ impl App {
 
 fn generate_mesh_for_cuboids(
     queue: Arc<vulkano::device::Queue>,
-    cuboids: &[RaycastCuboid],
+    cuboids: &[CuboidOffset],
 ) -> VertexBuffer {
     let vertices = cuboids
         .iter()
-        .enumerate()
-        .map(|(idx, cuboid)| {
-            let trans_vec = cuboid.0.translation.vector;
+        .map(|cuboid| {
+            let trans_vec = cuboid.translation.vector;
 
             let (x, y, z) = (trans_vec.x, trans_vec.y, trans_vec.z);
             world::chunk::CUBE_FACES
@@ -1092,11 +1080,10 @@ fn generate_mesh_for_cuboids(
                         .map(|&index| {
                             let orig_pos = world::chunk::CUBE_CORNERS[index].position;
                             let position = (orig_pos.0 + x, orig_pos.1 + y, orig_pos.2 + z);
-                            let value = (idx as f32) / 6859.0;
 
                             Vertex {
                                 position,
-                                color: (value, value, value, 1.0),
+                                color: (0.0, 0.0, 0.0, 1.0),
                                 normal,
                             }
                         })

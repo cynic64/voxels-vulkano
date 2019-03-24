@@ -1,9 +1,9 @@
 use std::sync::Arc;
 use vulkano::sync::GpuFuture;
-use na::Isometry3;
 
 // constants | types
 pub const CHUNK_SIZE: usize = 32;
+pub type CuboidOffset = na::Isometry3<f32>;
 
 #[derive(Copy, Clone, Debug)]
 pub struct Vertex {
@@ -15,7 +15,11 @@ impl_vertex!(Vertex, position, color, normal);
 
 pub type VertexBuffer = Arc<vulkano::buffer::immutable::ImmutableBuffer<[Vertex]>>;
 
-pub type RaycastCuboid = (Isometry3<f32>, usize);
+pub struct Coordinate {
+    pub x: i32,
+    pub y: i32,
+    pub z: i32,
+}
 
 
 // functions

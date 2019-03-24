@@ -1,4 +1,5 @@
 /target
 /src/oldmain.rs
 .log
+todo.txt
 **/*.rs.bk

@@ -29,7 +29,7 @@ impl Camera {
         let up = vec3(0.0, 1.0, 0.0);
         let world_up = vec3(0.0, 1.0, 0.0);
         let movement_speed = 20.0;
-        let mouse_sens = 0.0004;
+        let mouse_sens = 0.0007;
 
         Camera {
             position,
