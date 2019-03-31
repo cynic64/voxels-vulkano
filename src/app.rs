@@ -82,7 +82,7 @@ struct ChannelStuff {
     // lets you check which cells the camera intersects with
     nearby_cuboids_recv: Option<crossbeam_channel::Receiver<(Vec<CuboidOffset>, VertexBuffer)>>,
     // which cell indices to change
-    coordinates_to_change_trans: Option<crossbeam_channel::Sender<Coordinate>>,
+    coordinates_to_change_trans: Option<crossbeam_channel::Sender<WorldCoordinate>>,
 }
 
 #[derive(Clone)]
@@ -420,7 +420,7 @@ impl App {
         crossbeam_channel::Receiver<Vec<VertexBuffer>>,                           // vertex buffers: recieve Vec<VertexBuffer>
         crossbeam_channel::Sender<nalgebra_glm::Vec3>,                            // camera position: send na::Vec3
         crossbeam_channel::Receiver<(Vec<CuboidOffset>, VertexBuffer)>,           // nearby cuboids / nearby cuboids mesh: recieve Vec<CuboidOffset> and VertexBuffer
-        crossbeam_channel::Sender<Coordinate>,                                    // coordinates to change: send Vec<Coordinate>
+        crossbeam_channel::Sender<WorldCoordinate>,                               // coordinates to change: send Vec<WorldCoordinate>
     ) {
         // spawns a thread that generates vertex buffers for the main thread.
         // returns a list of channels to communicate with it
@@ -431,8 +431,8 @@ impl App {
         let (cam_pos_trans, cam_pos_recv) = crossbeam_channel::bounded(1);
         let (nearby_cuboids_trans, nearby_cuboids_recv) = crossbeam_channel::bounded(1);
         let coordinates_to_change = crossbeam_channel::unbounded();
-        let coordinates_to_change_trans: crossbeam_channel::Sender<Coordinate> = coordinates_to_change.0;
-        let coordinates_to_change_recv: crossbeam_channel::Receiver<Coordinate> = coordinates_to_change.1;
+        let coordinates_to_change_trans: crossbeam_channel::Sender<WorldCoordinate> = coordinates_to_change.0;
+        let coordinates_to_change_recv: crossbeam_channel::Receiver<WorldCoordinate> = coordinates_to_change.1;
 
         // initialize the world
         let mut world = world::World::new(queue.clone());
@@ -472,6 +472,16 @@ impl App {
                     if nearby_cuboids_trans.is_empty() {
                         nearby_cuboids_trans.send((cuboids, cuboids_mesh)).unwrap();
                     }
+
+                    // generate a new chunk at the camera's position too
+                    // todo: less magic numbers
+                    let ch_coord = ChunkCoordinate {
+                        x: ((camera_pos.x - 16.0) / 32.0) as i32,
+                        y: ((camera_pos.y - 16.0) / 32.0) as i32,
+                        z: ((camera_pos.z - 16.0) / 32.0) as i32,
+                    };
+                    world.generate_chunk_at(ch_coord);
+                    should_update_vbuf = true;
                 }
 
                 // change indices in the world, maybe
@@ -1044,7 +1054,7 @@ impl App {
             let new_z = ((orig.z + z_offset) + 0.5) as i32;
 
             // new_x, new_y, and new_z are now the coordinates of the block we want to change.
-            let coordinate = Coordinate {
+            let coordinate = WorldCoordinate {
                 x: new_x,
                 y: new_y,
                 z: new_z,
