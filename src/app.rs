@@ -468,6 +468,8 @@ impl App {
                     let cuboids = world.generate_nearby_cuboids(camera_pos);
                     let cuboids_mesh = generate_mesh_for_cuboids(queue.clone(), &cuboids);
 
+                    println!("Got new camera pos! {:?}", camera_pos);
+
                     // send it - if empty
                     if nearby_cuboids_trans.is_empty() {
                         nearby_cuboids_trans.send((cuboids, cuboids_mesh)).unwrap();
@@ -476,9 +478,9 @@ impl App {
                     // generate a new chunk at the camera's position too
                     // todo: less magic numbers
                     let ch_coord = ChunkCoordinate {
-                        x: ((camera_pos.x - 16.0) / 32.0) as i32,
-                        y: ((camera_pos.y - 16.0) / 32.0) as i32,
-                        z: ((camera_pos.z - 16.0) / 32.0) as i32,
+                        x: (camera_pos.x / 32.0).round() as i32,
+                        y: (camera_pos.y / 32.0).round() as i32,
+                        z: (camera_pos.z / 32.0).round() as i32,
                     };
                     world.generate_chunk_at(ch_coord);
                     should_update_vbuf = true;

@@ -70,6 +70,12 @@ impl Chunk {
 
         let nearby_cuboids_offsets = Self::generate_nearby_cuboids_offsets();
 
+        // we need to adjust offset so that the chunk is centered around the offset
+        // otherwise, the chunk's top-left-front corner will be on the offset
+        // and not the center
+        let half = (CHUNK_SIZE / 2) as f32;
+        let offset = (offset.0 - half, offset.1 - half, offset.2 - half);
+
         Chunk {
             cells: cells,
             offset,
