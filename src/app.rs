@@ -83,6 +83,8 @@ struct ChannelStuff {
     nearby_cuboids_recv: Option<crossbeam_channel::Receiver<(Vec<CuboidOffset>, VertexBuffer)>>,
     // which cell indices to change
     coordinates_to_change_trans: Option<crossbeam_channel::Sender<WorldCoordinate>>,
+    // to toggle generating chunks, send anything along this channel
+    toggle_generating_chunks_trans: Option<crossbeam_channel::Sender<bool>>,
 }
 
 #[derive(Clone)]
@@ -327,6 +329,7 @@ impl App {
             cam_pos_trans: None,
             nearby_cuboids_recv: None,
             coordinates_to_change_trans: None,
+            toggle_generating_chunks_trans: None,
         };
 
         App {
@@ -377,6 +380,7 @@ impl App {
         self.channels.cam_pos_trans = Some(channels.2);
         self.channels.nearby_cuboids_recv = Some(channels.3);
         self.channels.coordinates_to_change_trans = Some(channels.4);
+        self.channels.toggle_generating_chunks_trans = Some(channels.5);
 
         // record the current time so we can calculate the FPS later
 
@@ -419,8 +423,9 @@ impl App {
         crossbeam_channel::Sender<bool>, // should we quit: send true / false
         crossbeam_channel::Receiver<Vec<VertexBuffer>>, // vertex buffers: recieve Vec<VertexBuffer>
         crossbeam_channel::Sender<nalgebra_glm::Vec3>, // camera position: send na::Vec3
-        crossbeam_channel::Receiver<(Vec<CuboidOffset>, VertexBuffer)>, // nearby cuboids / nearby cuboids mesh: recieve Vec<CuboidOffset> and VertexBuffer
+        crossbeam_channel::Receiver<(Vec<CuboidOffset>, VertexBuffer)>, // nearby cuboids            / nearby cuboids mesh: recieve Vec<CuboidOffset> and VertexBuffer
         crossbeam_channel::Sender<WorldCoordinate>, // coordinates to change: send Vec<WorldCoordinate>
+        crossbeam_channel::Sender<bool>,            // whether to generate chunks or not: send bool
     ) {
         // spawns a thread that generates vertex buffers for the main thread.
         // returns a list of channels to communicate with it
@@ -435,6 +440,7 @@ impl App {
             coordinates_to_change.0;
         let coordinates_to_change_recv: crossbeam_channel::Receiver<WorldCoordinate> =
             coordinates_to_change.1;
+        let (toggle_generating_chunks_trans, toggle_generating_chunks_recv) = crossbeam_channel::bounded(1);
 
         // initialize the world
         let mut world = world::World::new(queue.clone());
@@ -442,12 +448,18 @@ impl App {
         // spawn the thread
         std::thread::spawn(move || {
             let mut should_update_vbuf = true;
+            let mut should_generate_chunks = true;
 
             loop {
                 // check if we should quit
                 if should_we_quit_recv.try_recv().is_ok() {
                     println!("    [ST] Quitting.");
                     break;
+                }
+
+                // check whether we should toggle whether we should generate generate new chunks or not
+                if toggle_generating_chunks_recv.try_recv().is_ok() {
+                    should_generate_chunks = !should_generate_chunks;
                 }
 
                 // get new vbufs and send them, maybe
@@ -479,13 +491,15 @@ impl App {
 
                     // generate a new chunk at the camera's position too
                     // todo: less magic numbers
-                    let ch_coord = ChunkCoordinate {
-                        x: (camera_pos.x / 32.0).round() as i32,
-                        y: (camera_pos.y / 32.0).round() as i32,
-                        z: (camera_pos.z / 32.0).round() as i32,
-                    };
-                    world.generate_chunk_at(ch_coord);
-                    should_update_vbuf = true;
+                    if should_generate_chunks {
+                        let ch_coord = ChunkCoordinate {
+                            x: (camera_pos.x / 32.0).round() as i32,
+                            y: (camera_pos.y / 32.0).round() as i32,
+                            z: (camera_pos.z / 32.0).round() as i32,
+                        };
+                        world.generate_chunk_at(ch_coord);
+                        should_update_vbuf = true;
+                    }
                 }
 
                 // change indices in the world, maybe
@@ -508,6 +522,7 @@ impl App {
             cam_pos_trans,
             nearby_cuboids_recv,
             coordinates_to_change_trans,
+            toggle_generating_chunks_trans,
         )
     }
 
@@ -624,6 +639,7 @@ impl App {
 
         let mut keys_pressed = self.keys_pressed.clone();
         let mut toggle_overlay = false;
+        let mut toggle_generating_chunks = false;
         let mut clicked = false;
 
         self.vk_stuff.events_loop.poll_events(|event| {
@@ -740,6 +756,17 @@ impl App {
                             },
                         ..
                     } => toggle_overlay = true,
+
+                    // toggle generating new chunks with g
+                    WindowEvent::KeyboardInput {
+                        input:
+                            KeyboardInput {
+                                virtual_keycode: Some(VirtualKeyCode::G),
+                                state: winit::ElementState::Pressed,
+                                ..
+                            },
+                        ..
+                    } => toggle_generating_chunks = true,
                     _ => {}
                 }
             }
@@ -761,7 +788,17 @@ impl App {
 
         // toggle overlay
         if toggle_overlay {
+            println!("Toggling drawing overlay");
             self.draw_overlay = !self.draw_overlay;
+        }
+
+        // toggle generating new chunks
+        if toggle_generating_chunks {
+            println!("Toggling chunk generation");
+
+            if self.channels.toggle_generating_chunks_trans.is_some() {
+                self.channels.toggle_generating_chunks_trans.as_mut().unwrap().send(true).unwrap();
+            }
         }
 
         // click

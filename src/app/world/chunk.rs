@@ -118,37 +118,41 @@ impl Chunk {
     pub fn randomize_state(&mut self) {
         // doesn't actually randomize it :p
 
-        // self.cells = (0..CHUNK_SIZE)
-        //     .map(|_| {
-        //         (0..CHUNK_SIZE)
-        //             .map(|_| (0..CHUNK_SIZE).map(|_| rand::random()).collect::<Vec<_>>())
-        //             .collect::<Vec<_>>()
-        //     })
-        //     .flatten()
-        //     .flatten()
-        //     .collect();
-
-        let s = CHUNK_SIZE;
-        let coef = 0.5;
-        self.cells = (0..s)
-            .map(move |z| {
-                (0..s).map(move |y| {
-                    (0..s).map(move |x| {
-                        if (x as f32 * coef).sin()
-                            + ((y / 2) as f32 * coef).sin()
-                            + ((z / 3) as f32 * coef).sin()
-                            > 0.0
-                        {
-                            1
-                        } else {
-                            0
-                        }
+        self.cells = (0..CHUNK_SIZE)
+            .map(|_| {
+                (0..CHUNK_SIZE)
+                    .map(|_| {
+                        (0..CHUNK_SIZE)
+                            .map(|_| if rand::random::<bool>() { 1 } else { 0 })
+                            .collect::<Vec<_>>()
                     })
-                })
+                    .collect::<Vec<_>>()
             })
             .flatten()
             .flatten()
-            .collect::<Vec<_>>();
+            .collect();
+
+        //     let s = CHUNK_SIZE;
+        //     let coef = 0.5;
+        //     self.cells = (0..s)
+        //         .map(move |z| {
+        //             (0..s).map(move |y| {
+        //                 (0..s).map(move |x| {
+        //                     if (x as f32 * coef).sin()
+        //                         + ((y / 2) as f32 * coef).sin()
+        //                         + ((z / 3) as f32 * coef).sin()
+        //                         > 0.0
+        //                     {
+        //                         1
+        //                     } else {
+        //                         0
+        //                     }
+        //                 })
+        //             })
+        //         })
+        //         .flatten()
+        //         .flatten()
+        //         .collect::<Vec<_>>();
     }
 
     pub fn generate_cuboids_close_to(&self, camera_position: Vec3) -> Vec<CuboidOffset> {
