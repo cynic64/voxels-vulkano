@@ -26,6 +26,7 @@ pub struct WorldCoordinate {
 // ChunkCoordinates use the exact same types but instead are used to
 // indicate the position of a chunk. You should be able to convert a
 // WorldCoordinate to a ChunkCoordinate by dividing by <CHUNK_SIZE>.
+#[derive(Debug, Clone)]
 pub struct ChunkCoordinate {
     pub x: i32,
     pub y: i32,

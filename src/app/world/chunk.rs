@@ -30,6 +30,8 @@ pub const CUBE_FACES: [Face; 6] = [
 
 pub struct Chunk {
     pub cells: Vec<u8>,
+    // coordinates of this chunk
+    pub chunk_coord: ChunkCoordinate,
     // coordinates of the corner of this chunk in 3d space
     offset: (f32, f32, f32),
     // the vertex buffer is cached here
@@ -58,7 +60,7 @@ struct Offset {
 }
 
 impl Chunk {
-    pub fn new(queue: Arc<vulkano::device::Queue>, offset: (f32, f32, f32)) -> Self {
+    pub fn new(queue: Arc<vulkano::device::Queue>, chunk_coord: ChunkCoordinate, offset: (f32, f32, f32)) -> Self {
         let cells = (0..CHUNK_SIZE)
             .map(|_| {
                 (0..CHUNK_SIZE)
@@ -78,6 +80,7 @@ impl Chunk {
 
         Chunk {
             cells: cells,
+            chunk_coord,
             offset,
             vbuf: make_empty_vbuf(queue),
             positions: vec![],

@@ -468,7 +468,7 @@ impl App {
                     let cuboids = world.generate_nearby_cuboids(camera_pos);
                     let cuboids_mesh = generate_mesh_for_cuboids(queue.clone(), &cuboids);
 
-                    println!("Got new camera pos! {:?}", camera_pos);
+                    // println!("Got new camera pos! {:?}", camera_pos);
 
                     // send it - if empty
                     if nearby_cuboids_trans.is_empty() {
