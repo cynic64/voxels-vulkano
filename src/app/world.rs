@@ -49,7 +49,8 @@ impl World {
             let co_z = (coord.z * 32) as f32;
 
             // create the chunk
-            let mut chunk = chunk::Chunk::new(self.queue.clone(), coord.clone(), (co_x, co_y, co_z));
+            let mut chunk =
+                chunk::Chunk::new(self.queue.clone(), coord.clone(), (co_x, co_y, co_z));
             chunk.update_positions();
             chunk.randomize_state();
 

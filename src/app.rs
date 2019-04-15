@@ -416,11 +416,11 @@ impl App {
     fn spawn_thread(
         queue: Arc<vulkano::device::Queue>,
     ) -> (
-        crossbeam_channel::Sender<bool>,                                          // should we quit: send true / false
-        crossbeam_channel::Receiver<Vec<VertexBuffer>>,                           // vertex buffers: recieve Vec<VertexBuffer>
-        crossbeam_channel::Sender<nalgebra_glm::Vec3>,                            // camera position: send na::Vec3
-        crossbeam_channel::Receiver<(Vec<CuboidOffset>, VertexBuffer)>,           // nearby cuboids / nearby cuboids mesh: recieve Vec<CuboidOffset> and VertexBuffer
-        crossbeam_channel::Sender<WorldCoordinate>,                               // coordinates to change: send Vec<WorldCoordinate>
+        crossbeam_channel::Sender<bool>, // should we quit: send true / false
+        crossbeam_channel::Receiver<Vec<VertexBuffer>>, // vertex buffers: recieve Vec<VertexBuffer>
+        crossbeam_channel::Sender<nalgebra_glm::Vec3>, // camera position: send na::Vec3
+        crossbeam_channel::Receiver<(Vec<CuboidOffset>, VertexBuffer)>, // nearby cuboids / nearby cuboids mesh: recieve Vec<CuboidOffset> and VertexBuffer
+        crossbeam_channel::Sender<WorldCoordinate>, // coordinates to change: send Vec<WorldCoordinate>
     ) {
         // spawns a thread that generates vertex buffers for the main thread.
         // returns a list of channels to communicate with it
@@ -431,8 +431,10 @@ impl App {
         let (cam_pos_trans, cam_pos_recv) = crossbeam_channel::bounded(1);
         let (nearby_cuboids_trans, nearby_cuboids_recv) = crossbeam_channel::bounded(1);
         let coordinates_to_change = crossbeam_channel::unbounded();
-        let coordinates_to_change_trans: crossbeam_channel::Sender<WorldCoordinate> = coordinates_to_change.0;
-        let coordinates_to_change_recv: crossbeam_channel::Receiver<WorldCoordinate> = coordinates_to_change.1;
+        let coordinates_to_change_trans: crossbeam_channel::Sender<WorldCoordinate> =
+            coordinates_to_change.0;
+        let coordinates_to_change_recv: crossbeam_channel::Receiver<WorldCoordinate> =
+            coordinates_to_change.1;
 
         // initialize the world
         let mut world = world::World::new(queue.clone());
@@ -487,7 +489,8 @@ impl App {
                 }
 
                 // change indices in the world, maybe
-                let coordinates_to_change = coordinates_to_change_recv.try_iter().collect::<Vec<_>>();
+                let coordinates_to_change =
+                    coordinates_to_change_recv.try_iter().collect::<Vec<_>>();
                 if !coordinates_to_change.is_empty() {
                     for coordinate in coordinates_to_change {
                         world.change_coordinate(coordinate, 1);
@@ -644,11 +647,13 @@ impl App {
                         );
                         x_movement = x_diff as f32;
                         y_movement = y_diff as f32;
-                    },
+                    }
 
-                    WindowEvent::MouseInput { button: winit::MouseButton::Left, state: winit::ElementState::Pressed, .. } => {
-                        clicked = true
-                    },
+                    WindowEvent::MouseInput {
+                        button: winit::MouseButton::Left,
+                        state: winit::ElementState::Pressed,
+                        ..
+                    } => clicked = true,
 
                     // WASD down
                     WindowEvent::KeyboardInput {
@@ -902,22 +907,23 @@ impl App {
             .unwrap(),
         );
 
-        let mut cmd_buffer = vulkano::command_buffer::AutoCommandBufferBuilder::primary_one_time_submit(
-            self.vk_stuff.device.clone(),
-            self.vk_stuff.queue.family(),
-        )
-        .unwrap()
-        .begin_render_pass(
-            self.vk_stuff.framebuffers[image_num].clone(),
-            false,
-            vec![
-                [0.2, 0.2, 0.2, 1.0].into(),
-                [0.2, 0.2, 0.2, 1.0].into(),
-                1f32.into(),
-                vulkano::format::ClearValue::None,
-            ],
-        )
-        .unwrap();
+        let mut cmd_buffer =
+            vulkano::command_buffer::AutoCommandBufferBuilder::primary_one_time_submit(
+                self.vk_stuff.device.clone(),
+                self.vk_stuff.queue.family(),
+            )
+            .unwrap()
+            .begin_render_pass(
+                self.vk_stuff.framebuffers[image_num].clone(),
+                false,
+                vec![
+                    [0.2, 0.2, 0.2, 1.0].into(),
+                    [0.2, 0.2, 0.2, 1.0].into(),
+                    1f32.into(),
+                    vulkano::format::ClearValue::None,
+                ],
+            )
+            .unwrap();
 
         // draw all vertex buffers of the world
         for vbuf in self.vk_stuff.vertex_buffers.iter() {
@@ -934,48 +940,50 @@ impl App {
 
         // draw the overlay - maybe
         if self.draw_overlay {
-            cmd_buffer = cmd_buffer.draw(
-                self.vk_stuff.pipeline3.clone(),
-                &self.vk_stuff.dynamic_state,
-                vec![self.vk_stuff.nearby_cuboids_mesh.clone()],
-                uniform_set.clone(),
-                (),
-            )
-            .unwrap()
+            cmd_buffer = cmd_buffer
+                .draw(
+                    self.vk_stuff.pipeline3.clone(),
+                    &self.vk_stuff.dynamic_state,
+                    vec![self.vk_stuff.nearby_cuboids_mesh.clone()],
+                    uniform_set.clone(),
+                    (),
+                )
+                .unwrap()
         }
 
         // draw the crosshair and build - always
-        cmd_buffer.draw(
-            self.vk_stuff.pipeline2.clone(),
-            &self.vk_stuff.dynamic_state,
-            vec![vbuf_from_verts(
-                self.vk_stuff.queue.clone(),
-                vec![
-                    Vertex {
-                        position: (0.0, -0.01, 0.0),
-                        color: (1.0, 1.0, 1.0, 1.0),
-                        normal: (0.0, 0.0, 0.0),
-                    },
-                    Vertex {
-                        position: (-0.005, 0.01, 0.0),
-                        color: (1.0, 1.0, 1.0, 1.0),
-                        normal: (0.0, 0.0, 0.0),
-                    },
-                    Vertex {
-                        position: (0.005, 0.01, 0.0),
-                        color: (1.0, 1.0, 1.0, 1.0),
-                        normal: (0.0, 0.0, 0.0),
-                    },
-                ],
-            )],
-            (),
-            (),
-        )
-        .unwrap()
-        .end_render_pass()
-        .unwrap()
-        .build()
-        .unwrap()
+        cmd_buffer
+            .draw(
+                self.vk_stuff.pipeline2.clone(),
+                &self.vk_stuff.dynamic_state,
+                vec![vbuf_from_verts(
+                    self.vk_stuff.queue.clone(),
+                    vec![
+                        Vertex {
+                            position: (0.0, -0.01, 0.0),
+                            color: (1.0, 1.0, 1.0, 1.0),
+                            normal: (0.0, 0.0, 0.0),
+                        },
+                        Vertex {
+                            position: (-0.005, 0.01, 0.0),
+                            color: (1.0, 1.0, 1.0, 1.0),
+                            normal: (0.0, 0.0, 0.0),
+                        },
+                        Vertex {
+                            position: (0.005, 0.01, 0.0),
+                            color: (1.0, 1.0, 1.0, 1.0),
+                            normal: (0.0, 0.0, 0.0),
+                        },
+                    ],
+                )],
+                (),
+                (),
+            )
+            .unwrap()
+            .end_render_pass()
+            .unwrap()
+            .build()
+            .unwrap()
     }
 
     fn update_camera(&mut self) {

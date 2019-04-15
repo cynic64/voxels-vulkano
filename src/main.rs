@@ -3,8 +3,8 @@ extern crate vulkano;
 #[macro_use]
 extern crate vulkano_shader_derive;
 
-extern crate ncollide3d;
 extern crate nalgebra as na;
+extern crate ncollide3d;
 
 mod app;
 use self::app::App;

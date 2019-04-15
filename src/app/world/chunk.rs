@@ -60,12 +60,13 @@ struct Offset {
 }
 
 impl Chunk {
-    pub fn new(queue: Arc<vulkano::device::Queue>, chunk_coord: ChunkCoordinate, offset: (f32, f32, f32)) -> Self {
+    pub fn new(
+        queue: Arc<vulkano::device::Queue>,
+        chunk_coord: ChunkCoordinate,
+        offset: (f32, f32, f32),
+    ) -> Self {
         let cells = (0..CHUNK_SIZE)
-            .map(|_| {
-                (0..CHUNK_SIZE)
-                    .map(|_| (0..CHUNK_SIZE).map(|_| rand::random()))
-            })
+            .map(|_| (0..CHUNK_SIZE).map(|_| (0..CHUNK_SIZE).map(|_| rand::random())))
             .flatten()
             .flatten()
             .collect();
@@ -183,7 +184,8 @@ impl Chunk {
                     || (new_rel_y >= (CHUNK_SIZE as f32))
                     || (new_rel_z >= (CHUNK_SIZE as f32));
                 if !out_of_bounds {
-                    let idx = xyz_to_linear(new_rel_x as usize, new_rel_y as usize, new_rel_z as usize);
+                    let idx =
+                        xyz_to_linear(new_rel_x as usize, new_rel_y as usize, new_rel_z as usize);
                     if self.cells[idx] > 0 {
                         // finally, the interesting part: we found a block close to the camera!
                         // generate a cuboid for it
@@ -247,7 +249,11 @@ impl Chunk {
                             };
 
                             Vertex {
-                                position: (pos.0 + offset.0 + self.offset.0, pos.1 + offset.1 + self.offset.1, pos.2 + offset.2 + self.offset.2),
+                                position: (
+                                    pos.0 + offset.0 + self.offset.0,
+                                    pos.1 + offset.1 + self.offset.1,
+                                    pos.2 + offset.2 + self.offset.2,
+                                ),
                                 color,
                                 normal: face.normal,
                             }
