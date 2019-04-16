@@ -383,7 +383,6 @@ impl App {
         self.channels.toggle_generating_chunks_trans = Some(channels.5);
 
         // record the current time so we can calculate the FPS later
-
         let start = std::time::Instant::now();
         loop {
             let frame_start = std::time::Instant::now();
@@ -440,7 +439,8 @@ impl App {
             coordinates_to_change.0;
         let coordinates_to_change_recv: crossbeam_channel::Receiver<WorldCoordinate> =
             coordinates_to_change.1;
-        let (toggle_generating_chunks_trans, toggle_generating_chunks_recv) = crossbeam_channel::bounded(1);
+        let (toggle_generating_chunks_trans, toggle_generating_chunks_recv) =
+            crossbeam_channel::bounded(1);
 
         // initialize the world
         let mut world = world::World::new(queue.clone());
@@ -448,6 +448,7 @@ impl App {
         // spawn the thread
         std::thread::spawn(move || {
             let mut should_update_vbuf = true;
+
             let mut should_generate_chunks = true;
 
             loop {
@@ -482,7 +483,7 @@ impl App {
                     let cuboids = world.generate_nearby_cuboids(camera_pos);
                     let cuboids_mesh = generate_mesh_for_cuboids(queue.clone(), &cuboids);
 
-                    println!("Got new camera pos! {:?}", camera_pos);
+                    // println!("Got new camera pos! {:?}", camera_pos);
 
                     // send it - if empty
                     if nearby_cuboids_trans.is_empty() {
@@ -797,7 +798,12 @@ impl App {
             println!("Toggling chunk generation");
 
             if self.channels.toggle_generating_chunks_trans.is_some() {
-                self.channels.toggle_generating_chunks_trans.as_mut().expect("broooo").send(true).expect("here");
+                self.channels
+                    .toggle_generating_chunks_trans
+                    .as_mut()
+                    .unwrap()
+                    .send(true)
+                    .unwrap();
             }
         }
 
@@ -1096,9 +1102,9 @@ impl App {
             let z_offset = dir.z * toi;
 
             // + 0.5 to round
-            let new_x = ((orig.x + x_offset) + 0.5) as i32;
-            let new_y = ((orig.y + y_offset) + 0.5) as i32;
-            let new_z = ((orig.z + z_offset) + 0.5) as i32;
+            let new_x = ((orig.x + x_offset) + 0.5).floor();
+            let new_y = ((orig.y + y_offset) + 0.5).floor();
+            let new_z = ((orig.z + z_offset) + 0.5).floor();
 
             // new_x, new_y, and new_z are now the coordinates of the block we want to change.
             let coordinate = WorldCoordinate {

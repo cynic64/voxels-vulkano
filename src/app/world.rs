@@ -65,9 +65,37 @@ impl World {
         }
     }
 
-    pub fn change_coordinate(&mut self, _coord: WorldCoordinate, _new_state: u8) {
-        // this doesn't work for now, ok
-        println!("Change_coordinate unimplemented.");
+    pub fn change_coordinate(&mut self, coord: WorldCoordinate, new_state: u8) {
+        println!("placing block!");
+        // figure out which chunk coord is in by dividing by 32
+        let ch_coord = ChunkCoordinate {
+            x: (coord.x / 32.0).round() as i32,
+            y: (coord.y / 32.0).round() as i32,
+            z: (coord.z / 32.0).round() as i32,
+        };
+
+        // figure out which idx within the chunk to change by
+        // modulo CHUNK_SIZE'ing the xyz of coord and converting
+        // that to a linear coordinate
+        // we have to add 16 to each coord because chunks are centered on their
+        // coordinates
+        let subchunk_x = ((coord.x + 16.0) % 32.0) as usize;
+        let subchunk_y = ((coord.y + 16.0) % 32.0) as usize;
+        let subchunk_z = ((coord.z + 16.0) % 32.0) as usize;
+        println!("scx: {}, scy: {}, scz: {}", subchunk_x, subchunk_y, subchunk_z);
+        let subchunk_idx = xyz_to_linear(subchunk_x, subchunk_z, subchunk_y);
+
+        // find the idx of the chunk with matching ch_coord
+        // and change the correct idx within it
+        self.chunks.iter_mut().for_each(|chunk| {
+            if chunk.chunk_coord.x == ch_coord.x
+                && chunk.chunk_coord.y == ch_coord.y
+                && chunk.chunk_coord.z == ch_coord.z
+            {
+                println!("found a match! placing at {}", subchunk_idx);
+                chunk.cells[subchunk_idx] = new_state;
+            }
+        });
     }
 
     pub fn update_vbufs(&mut self) {

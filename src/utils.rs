@@ -16,11 +16,11 @@ impl_vertex!(Vertex, position, color, normal);
 pub type VertexBuffer = Arc<vulkano::buffer::immutable::ImmutableBuffer<[Vertex]>>;
 
 // WorldCoordinates are the player's position is 3d space,
-// and are the same as camera coordinates (i think...) except rounded.
+// and are the same as camera coordinates
 pub struct WorldCoordinate {
-    pub x: i32,
-    pub y: i32,
-    pub z: i32,
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
 }
 
 // ChunkCoordinates use the exact same types but instead are used to
