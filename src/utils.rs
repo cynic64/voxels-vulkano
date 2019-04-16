@@ -57,3 +57,17 @@ pub fn make_empty_vbuf(queue: Arc<vulkano::device::Queue>) -> VertexBuffer {
 pub fn xyz_to_linear(x: usize, y: usize, z: usize) -> usize {
     z * (CHUNK_SIZE * CHUNK_SIZE) + y * CHUNK_SIZE + x
 }
+
+pub fn world_coord_to_subchunk_axis(value: f32) -> usize {
+    // first, add 16 because chunks are centered
+    let value = value + 16.0;
+
+    if value >= 0.0 {
+        // if it's positive, modulo 32 all that's needed
+        (value % 32.0) as usize
+    } else {
+        // otherwise, add 32 until it's positive because
+        // rust's modulo is a little weird with negatives
+        (value + 32.0 * ((value / -32.0).ceil())) as usize
+    }
+}

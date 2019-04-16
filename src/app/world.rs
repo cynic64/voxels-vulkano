@@ -79,9 +79,9 @@ impl World {
         // that to a linear coordinate
         // we have to add 16 to each coord because chunks are centered on their
         // coordinates
-        let subchunk_x = ((coord.x + 16.0) % 32.0) as usize;
-        let subchunk_y = ((coord.y + 16.0) % 32.0) as usize;
-        let subchunk_z = ((coord.z + 16.0) % 32.0) as usize;
+        let subchunk_x = world_coord_to_subchunk_axis(coord.x);
+        let subchunk_y = world_coord_to_subchunk_axis(coord.y);
+        let subchunk_z = world_coord_to_subchunk_axis(coord.z);
         println!("scx: {}, scy: {}, scz: {}", subchunk_x, subchunk_y, subchunk_z);
         let subchunk_idx = xyz_to_linear(subchunk_x, subchunk_z, subchunk_y);
 
