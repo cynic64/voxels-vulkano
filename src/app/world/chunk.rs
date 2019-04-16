@@ -194,8 +194,8 @@ impl Chunk {
                         // finally, the interesting part: we found a block close to the camera!
                         // generate a cuboid for it
                         let new_absolute_x = new_rel_x + self.offset.0;
-                        let new_absolute_y = new_rel_y + self.offset.1;
-                        let new_absolute_z = new_rel_z + self.offset.2;
+                        let new_absolute_y = new_rel_y + self.offset.2;
+                        let new_absolute_z = new_rel_z + self.offset.1;
 
                         let isometry = Isometry3::from_parts(
                             Translation3::new(new_absolute_x, new_absolute_z, new_absolute_y),
