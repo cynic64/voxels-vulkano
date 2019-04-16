@@ -118,41 +118,41 @@ impl Chunk {
     pub fn randomize_state(&mut self) {
         // doesn't actually randomize it :p
 
-        self.cells = (0..CHUNK_SIZE)
-            .map(|_| {
-                (0..CHUNK_SIZE)
-                    .map(|_| {
-                        (0..CHUNK_SIZE)
-                            .map(|_| if rand::random::<bool>() { 1 } else { 0 })
-                            .collect::<Vec<_>>()
+        // self.cells = (0..CHUNK_SIZE)
+        //     .map(|_| {
+        //         (0..CHUNK_SIZE)
+        //             .map(|_| {
+        //                 (0..CHUNK_SIZE)
+        //                     .map(|_| if rand::random::<bool>() { 1 } else { 0 })
+        //                     .collect::<Vec<_>>()
+        //             })
+        //             .collect::<Vec<_>>()
+        //     })
+        //     .flatten()
+        //     .flatten()
+        //     .collect();
+
+        let s = CHUNK_SIZE;
+        let coef = 0.5;
+        self.cells = (0..s)
+            .map(move |z| {
+                (0..s).map(move |y| {
+                    (0..s).map(move |x| {
+                        if (x as f32 * coef).sin()
+                            + ((y / 2) as f32 * coef).sin()
+                            + ((z / 3) as f32 * coef).sin()
+                            > 0.0
+                        {
+                            1
+                        } else {
+                            0
+                        }
                     })
-                    .collect::<Vec<_>>()
+                })
             })
             .flatten()
             .flatten()
-            .collect();
-
-        //     let s = CHUNK_SIZE;
-        //     let coef = 0.5;
-        //     self.cells = (0..s)
-        //         .map(move |z| {
-        //             (0..s).map(move |y| {
-        //                 (0..s).map(move |x| {
-        //                     if (x as f32 * coef).sin()
-        //                         + ((y / 2) as f32 * coef).sin()
-        //                         + ((z / 3) as f32 * coef).sin()
-        //                         > 0.0
-        //                     {
-        //                         1
-        //                     } else {
-        //                         0
-        //                     }
-        //                 })
-        //             })
-        //         })
-        //         .flatten()
-        //         .flatten()
-        //         .collect::<Vec<_>>();
+            .collect::<Vec<_>>();
     }
 
     pub fn generate_cuboids_close_to(&self, camera_position: Vec3) -> Vec<CuboidOffset> {
@@ -214,9 +214,8 @@ impl Chunk {
     }
 
     fn generate_vertices(&self) -> Vec<Vertex> {
-        let min_idx = (CHUNK_SIZE * CHUNK_SIZE) + CHUNK_SIZE + 1;
-        let max_idx = (CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) - min_idx;
-        (min_idx..max_idx)
+        let total_cells = CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE;
+        (0..total_cells)
             .filter_map(|idx| {
                 if self.cells[idx] > 0 {
                     Some(self.generate_verts_for_cube(idx))
@@ -229,6 +228,8 @@ impl Chunk {
     }
 
     fn generate_verts_for_cube(&self, idx: usize) -> Vec<Vertex> {
+        // generates vertices for the cube at idx
+
         // make sure cell is alive and not totally obscured
         let offset = self.positions[idx];
         if self.cells[idx] > 0 && self.count_neighbors(idx) < 26 {
@@ -278,12 +279,10 @@ impl Chunk {
 
         for offset in offsets.iter() {
             let idx_offset = offset.get_idx_offset();
-            // pray it doesn't overflow in the usize -> i32 conversion
-            // would happen with size > 1200, which is pretty extreme but possible.
-            // usize overflows at size > 1500, which isn't so great either.
-            // turns out 3d is hard! ;)
             let new_idx = ((base_idx as i32) + idx_offset) as usize;
-            if self.cells[new_idx] > 0 {
+
+            // first comparison prevents overflow
+            if new_idx < (CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) && self.cells[new_idx] > 0 {
                 neighbor_count += 1;
             }
         }
@@ -293,35 +292,43 @@ impl Chunk {
 
     fn count_neighbors(&self, idx: usize) -> usize {
         let size = CHUNK_SIZE;
+        let min_idx = (size * size) + size + 1;
+        let max_idx = (size * size * size) - min_idx;
 
-        let neighbors = [
-            self.cells[idx + (size * size) + size + 1],
-            self.cells[idx + (size * size) + size],
-            self.cells[idx + (size * size) + size - 1],
-            self.cells[idx + (size * size) + 1],
-            self.cells[idx + (size * size)],
-            self.cells[idx + (size * size) - 1],
-            self.cells[idx + (size * size) - size + 1],
-            self.cells[idx + (size * size) - size],
-            self.cells[idx + (size * size) - size - 1],
-            self.cells[idx + size + 1],
-            self.cells[idx + size],
-            self.cells[idx + size - 1],
-            self.cells[idx + 1],
-            self.cells[idx - 1],
-            self.cells[idx - size + 1],
-            self.cells[idx - size],
-            self.cells[idx - size - 1],
-            self.cells[idx - (size * size) + size + 1],
-            self.cells[idx - (size * size) + size],
-            self.cells[idx - (size * size) + size - 1],
-            self.cells[idx - (size * size) + 1],
-            self.cells[idx - (size * size)],
-            self.cells[idx - (size * size) - 1],
-            self.cells[idx - (size * size) - size + 1],
-            self.cells[idx - (size * size) - size],
-            self.cells[idx - (size * size) - size - 1],
-        ];
+        // if the index is in this range we don't have to worry about going OOB
+        let neighbors = if idx > min_idx && idx < max_idx {
+            [
+                self.cells[idx + (size * size) + size + 1],
+                self.cells[idx + (size * size) + size],
+                self.cells[idx + (size * size) + size - 1],
+                self.cells[idx + (size * size) + 1],
+                self.cells[idx + (size * size)],
+                self.cells[idx + (size * size) - 1],
+                self.cells[idx + (size * size) - size + 1],
+                self.cells[idx + (size * size) - size],
+                self.cells[idx + (size * size) - size - 1],
+                self.cells[idx + size + 1],
+                self.cells[idx + size],
+                self.cells[idx + size - 1],
+                self.cells[idx + 1],
+                self.cells[idx - 1],
+                self.cells[idx - size + 1],
+                self.cells[idx - size],
+                self.cells[idx - size - 1],
+                self.cells[idx - (size * size) + size + 1],
+                self.cells[idx - (size * size) + size],
+                self.cells[idx - (size * size) + size - 1],
+                self.cells[idx - (size * size) + 1],
+                self.cells[idx - (size * size)],
+                self.cells[idx - (size * size) - 1],
+                self.cells[idx - (size * size) - size + 1],
+                self.cells[idx - (size * size) - size],
+                self.cells[idx - (size * size) - size - 1],
+            ]
+        // otherwise just don't count neighbors period
+        } else {
+            [0; 26]
+        };
 
         neighbors.iter().filter(|&x| *x > 0).count()
     }
@@ -352,9 +359,6 @@ impl Chunk {
             }
         }
 
-        println!("Offsets len: {}", no_duplicates.len());
-        println!("Expected len: {}", 19 * 19 * 19);
-
         offsets
     }
 }
@@ -371,6 +375,12 @@ impl Face {
     fn is_visible(&self, cells: &[u8], idx: usize) -> bool {
         let neighbor_idx = ((idx as i32) + self.facing.get_idx_offset()) as usize;
 
-        cells[neighbor_idx] == 0
+        if neighbor_idx >= (CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) {
+            // prevent overflow
+            // just assume it's visible if it's close to the chunk boundary
+            true
+        } else {
+            cells[neighbor_idx] == 0
+        }
     }
 }

@@ -482,7 +482,7 @@ impl App {
                     let cuboids = world.generate_nearby_cuboids(camera_pos);
                     let cuboids_mesh = generate_mesh_for_cuboids(queue.clone(), &cuboids);
 
-                    // println!("Got new camera pos! {:?}", camera_pos);
+                    println!("Got new camera pos! {:?}", camera_pos);
 
                     // send it - if empty
                     if nearby_cuboids_trans.is_empty() {
@@ -797,7 +797,7 @@ impl App {
             println!("Toggling chunk generation");
 
             if self.channels.toggle_generating_chunks_trans.is_some() {
-                self.channels.toggle_generating_chunks_trans.as_mut().unwrap().send(true).unwrap();
+                self.channels.toggle_generating_chunks_trans.as_mut().expect("broooo").send(true).expect("here");
             }
         }
 
