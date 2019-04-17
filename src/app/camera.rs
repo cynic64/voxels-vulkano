@@ -18,8 +18,8 @@ pub struct Camera {
 impl Camera {
     pub fn default() -> Camera {
         let position = vec3(0.0, 0.0, 0.0);
-        let pitch = 0.0;
-        let yaw = 0.0;
+        let pitch: f32 = 0.0;
+        let yaw: f32 = 0.0;
         let front = normalize(&vec3(
             pitch.cos() * yaw.cos(),
             pitch.sin(),
