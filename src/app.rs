@@ -12,6 +12,9 @@ use na::Vector3;
 use ncollide3d::query::{Ray, RayCast};
 use ncollide3d::shape::Cuboid;
 
+extern crate vulkano_text;
+use vulkano_text::{DrawText, DrawTextTrait};
+
 use std::sync::Arc;
 
 // modules
@@ -65,6 +68,7 @@ struct VkStuff {
     previous_frame: Option<Box<GpuFuture>>,
 
     // stats
+    draw_text: DrawText,
     delta: f32,
     frame_count: u32,
 
@@ -332,6 +336,9 @@ impl App {
             toggle_generating_chunks_trans: None,
         };
 
+        let mut draw_text = DrawText::new(device.clone(), queue.clone(), swapchain.clone(), &images);
+        draw_text.queue_text(200.0, 50.0, 20.0, [1.0, 1.0, 1.0, 1.0], "The quick brown fox jumps over the lazy dog.");
+
         App {
             vk_stuff: VkStuff {
                 previous_frame,
@@ -360,6 +367,7 @@ impl App {
                 framebuffers,
                 dynamic_state,
                 vertex_buffers: vec![],
+                draw_text,
                 delta,
                 frame_count: 0,
                 nearby_cuboids_mesh: make_empty_vbuf(queue.clone()),
@@ -816,7 +824,7 @@ impl App {
     }
 
     fn rebuild_swapchain(&mut self) {
-        // 100% magic
+        // 100% magic, don't touch
 
         let physical = vulkano::instance::PhysicalDevice::from_index(
             &self.vk_stuff.instance,
@@ -893,6 +901,8 @@ impl App {
             ],
             depth_range: 0.0..1.0,
         }]);
+
+        self.vk_stuff.draw_text = DrawText::new(self.vk_stuff.device.clone(), self.vk_stuff.queue.clone(), self.vk_stuff.swapchain.clone(), &self.vk_stuff.images);
 
         self.vk_stuff.recreate_swapchain = false;
     }
@@ -983,6 +993,10 @@ impl App {
 
         // draw the overlay - maybe
         if self.draw_overlay {
+            // only if the overlay is being drawn do we queue the debug text,
+            // so the debug text will only appear if the overlay is also being drawn.
+            self.vk_stuff.draw_text.queue_text(200.0, 50.0, 20.0, [1.0, 1.0, 1.0, 0.8], &format!("x: {:.2}, y: {:.2}, z: {:.2}", self.cam.position.x, self.cam.position.y, self.cam.position.z));
+
             cmd_buffer = cmd_buffer
                 .draw(
                     self.vk_stuff.pipeline3.clone(),
@@ -1025,6 +1039,7 @@ impl App {
             .unwrap()
             .end_render_pass()
             .unwrap()
+            .draw_text(&mut self.vk_stuff.draw_text, image_num)           // debug text
             .build()
             .unwrap()
     }
