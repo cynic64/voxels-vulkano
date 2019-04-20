@@ -336,8 +336,15 @@ impl App {
             toggle_generating_chunks_trans: None,
         };
 
-        let mut draw_text = DrawText::new(device.clone(), queue.clone(), swapchain.clone(), &images);
-        draw_text.queue_text(200.0, 50.0, 20.0, [1.0, 1.0, 1.0, 1.0], "The quick brown fox jumps over the lazy dog.");
+        let mut draw_text =
+            DrawText::new(device.clone(), queue.clone(), swapchain.clone(), &images);
+        draw_text.queue_text(
+            200.0,
+            50.0,
+            20.0,
+            [1.0, 1.0, 1.0, 1.0],
+            "The quick brown fox jumps over the lazy dog.",
+        );
 
         App {
             vk_stuff: VkStuff {
@@ -902,7 +909,12 @@ impl App {
             depth_range: 0.0..1.0,
         }]);
 
-        self.vk_stuff.draw_text = DrawText::new(self.vk_stuff.device.clone(), self.vk_stuff.queue.clone(), self.vk_stuff.swapchain.clone(), &self.vk_stuff.images);
+        self.vk_stuff.draw_text = DrawText::new(
+            self.vk_stuff.device.clone(),
+            self.vk_stuff.queue.clone(),
+            self.vk_stuff.swapchain.clone(),
+            &self.vk_stuff.images,
+        );
 
         self.vk_stuff.recreate_swapchain = false;
     }
@@ -995,7 +1007,33 @@ impl App {
         if self.draw_overlay {
             // only if the overlay is being drawn do we queue the debug text,
             // so the debug text will only appear if the overlay is also being drawn.
-            self.vk_stuff.draw_text.queue_text(200.0, 50.0, 20.0, [1.0, 1.0, 1.0, 0.8], &format!("x: {:.2}, y: {:.2}, z: {:.2}", self.cam.position.x, self.cam.position.y, self.cam.position.z));
+            self.vk_stuff.draw_text.queue_text(
+                50.0,
+                50.0,
+                20.0,
+                [1.0, 1.0, 1.0, 0.8],
+                &format!(
+                    "x: {:.2}, y: {:.2}, z: {:.2}",
+                    self.cam.position.x, self.cam.position.y, self.cam.position.z
+                ),
+            );
+            self.vk_stuff.draw_text.queue_text(
+                50.0,
+                70.0,
+                20.0,
+                [1.0, 1.0, 1.0, 0.8],
+                &format!("Delta: {:.4}", self.vk_stuff.delta),
+            );
+            self.vk_stuff.draw_text.queue_text(
+                50.0,
+                90.0,
+                20.0,
+                [1.0, 1.0, 1.0, 0.8],
+                &format!(
+                    "# of vertex buffers: {}",
+                    self.vk_stuff.vertex_buffers.len()
+                ),
+            );
 
             cmd_buffer = cmd_buffer
                 .draw(
@@ -1039,7 +1077,7 @@ impl App {
             .unwrap()
             .end_render_pass()
             .unwrap()
-            .draw_text(&mut self.vk_stuff.draw_text, image_num)           // debug text
+            .draw_text(&mut self.vk_stuff.draw_text, image_num) // debug text
             .build()
             .unwrap()
     }

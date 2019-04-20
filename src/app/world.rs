@@ -12,19 +12,10 @@ pub struct World {
 
 impl World {
     pub fn new(queue: Arc<vulkano::device::Queue>) -> Self {
-        // create a new chunk
-        // let mut chunk = chunk::Chunk::new(queue.clone(), (0.0, 0.0, 0.0));
-        // let mut chunk2 = chunk::Chunk::new(queue.clone(), (CHUNK_SIZE as f32, 0.0, 0.0));
-        // chunk.update_positions();
-        // chunk.randomize_state();
-        // chunk2.update_positions();
-        // chunk2.randomize_state();
-
-        // create an list of Nones as long as TOTAL_CHUNKS
-        // the chunks will be generated later
-        let chunks = vec![];
-
-        World { chunks, queue }
+        World {
+            chunks: vec![],       // the chunks will be generated later
+            queue
+            }
     }
 
     pub fn generate_chunk_at(&mut self, coord: ChunkCoordinate) {
@@ -108,7 +99,7 @@ impl World {
     }
 
     pub fn get_vbufs(&self) -> Vec<VertexBuffer> {
-        self.chunks.iter().map(|chunk| chunk.get_vbuf()).collect()
+        self.chunks.iter().map(chunk::Chunk::get_vbuf).collect()
     }
 
     pub fn generate_nearby_cuboids(&self, camera_pos: Vec3) -> Vec<CuboidOffset> {

@@ -80,7 +80,7 @@ impl Chunk {
         let offset = (offset.0 - half, offset.1 - half, offset.2 - half);
 
         Chunk {
-            cells: cells,
+            cells,
             chunk_coord,
             offset,
             vbuf: make_empty_vbuf(queue),
