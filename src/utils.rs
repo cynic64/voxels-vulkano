@@ -33,6 +33,12 @@ pub struct ChunkCoordinate {
     pub z: i32,
 }
 
+// xy thing for screen coordinates, not vulkan ones.
+pub struct ScreenCoordinate {
+    pub x: f32,
+    pub y: f32,
+}
+
 // functions
 pub fn vbuf_from_verts(queue: Arc<vulkano::device::Queue>, vertices: Vec<Vertex>) -> VertexBuffer {
     let (buffer, future) = vulkano::buffer::immutable::ImmutableBuffer::from_iter(
