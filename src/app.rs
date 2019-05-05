@@ -22,6 +22,8 @@ mod camera;
 mod world;
 use super::utils::*;
 
+// hello!
+
 pub struct App {
     // everything graphics-related
     vk_stuff: VkStuff,
