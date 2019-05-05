@@ -22,8 +22,6 @@ mod camera;
 mod world;
 use super::utils::*;
 
-// hello!
-
 pub struct App {
     // everything graphics-related
     vk_stuff: VkStuff,
@@ -61,9 +59,10 @@ struct VkStuff {
 
     uniform_buffer: vulkano::buffer::cpu_pool::CpuBufferPool<vs::ty::Data>,
     renderpass: Arc<vulkano::framebuffer::RenderPassAbstract + Send + Sync>,
-    pipeline: Arc<vulkano::pipeline::GraphicsPipelineAbstract + Send + Sync>,
-    pipeline2: Arc<vulkano::pipeline::GraphicsPipelineAbstract + Send + Sync>,
-    pipeline3: Arc<vulkano::pipeline::GraphicsPipelineAbstract + Send + Sync>,
+    // a different pipeline is needed for each layer that is drawn
+    main_pipeline: Arc<vulkano::pipeline::GraphicsPipelineAbstract + Send + Sync>,
+    crosshair_pipeline: Arc<vulkano::pipeline::GraphicsPipelineAbstract + Send + Sync>,
+    overlay_pipeline: Arc<vulkano::pipeline::GraphicsPipelineAbstract + Send + Sync>,
     framebuffers: Vec<Arc<vulkano::framebuffer::FramebufferAbstract + Send + Sync>>,
     dynamic_state: vulkano::command_buffer::DynamicState,
     vertex_buffers: Vec<VertexBuffer>,
@@ -265,7 +264,7 @@ impl App {
             .unwrap(),
         );
 
-        let pipeline = Arc::new(
+        let main_pipeline = Arc::new(
             vulkano::pipeline::GraphicsPipeline::start()
                 .vertex_input_single_buffer::<Vertex>()
                 .vertex_shader(vs.main_entry_point(), ())
@@ -278,7 +277,7 @@ impl App {
                 .build(device.clone())
                 .unwrap(),
         );
-        let pipeline2 = Arc::new(
+        let crosshair_pipeline = Arc::new(
             vulkano::pipeline::GraphicsPipeline::start()
                 .vertex_input_single_buffer::<Vertex>()
                 .vertex_shader(vs2.main_entry_point(), ())
@@ -289,7 +288,7 @@ impl App {
                 .build(device.clone())
                 .unwrap(),
         );
-        let pipeline3 = Arc::new(
+        let overlay_pipeline = Arc::new(
             vulkano::pipeline::GraphicsPipeline::start()
                 .vertex_input_single_buffer::<Vertex>()
                 .vertex_shader(vs.main_entry_point(), ())
@@ -370,9 +369,9 @@ impl App {
                 projection,
                 uniform_buffer,
                 renderpass,
-                pipeline,
-                pipeline2,
-                pipeline3,
+                main_pipeline,
+                crosshair_pipeline,
+                overlay_pipeline,
                 framebuffers,
                 dynamic_state,
                 vertex_buffers: vec![],
@@ -965,7 +964,7 @@ impl App {
         // means uniform buffer creation can't be put in its own function
         let uniform_set = Arc::new(
             vulkano::descriptor::descriptor_set::PersistentDescriptorSet::start(
-                self.vk_stuff.pipeline.clone(),
+                self.vk_stuff.main_pipeline.clone(),
                 0,
             )
             .add_buffer(uniform_buffer_subbuffer)
@@ -996,7 +995,7 @@ impl App {
         for vbuf in self.vk_stuff.vertex_buffers.iter() {
             cmd_buffer = cmd_buffer
                 .draw(
-                    self.vk_stuff.pipeline.clone(),
+                    self.vk_stuff.main_pipeline.clone(),
                     &self.vk_stuff.dynamic_state,
                     vec![vbuf.clone()],
                     uniform_set.clone(),
@@ -1039,7 +1038,7 @@ impl App {
 
             cmd_buffer = cmd_buffer
                 .draw(
-                    self.vk_stuff.pipeline3.clone(),
+                    self.vk_stuff.overlay_pipeline.clone(),
                     &self.vk_stuff.dynamic_state,
                     vec![self.vk_stuff.nearby_cuboids_mesh.clone()],
                     uniform_set.clone(),
@@ -1051,7 +1050,7 @@ impl App {
         // draw the crosshair and build - always
         cmd_buffer
             .draw(
-                self.vk_stuff.pipeline2.clone(),
+                self.vk_stuff.crosshair_pipeline.clone(),
                 &self.vk_stuff.dynamic_state,
                 vec![vbuf_from_verts(
                     self.vk_stuff.queue.clone(),
