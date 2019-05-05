@@ -39,6 +39,14 @@ pub struct ScreenCoordinate {
     pub y: f32,
 }
 
+// Struct for sending and recieving information about nearby cuboids.
+// One field is a list of isometries for nearby cuboids, and the other
+// is a mesh that can be drawn as an overlay for debugging.
+pub struct NearbyCuboidsInfo {
+    pub overlay_mesh: VertexBuffer,
+    pub cuboid_offsets: Vec<CuboidOffset>,
+}
+
 // functions
 pub fn vbuf_from_verts(queue: Arc<vulkano::device::Queue>, vertices: Vec<Vertex>) -> VertexBuffer {
     let (buffer, future) = vulkano::buffer::immutable::ImmutableBuffer::from_iter(

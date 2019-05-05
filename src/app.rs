@@ -85,7 +85,8 @@ struct ChannelStuff {
     // send the camera position here as often as possible
     cam_pos_trans: Option<crossbeam_channel::Sender<nalgebra_glm::Vec3>>,
     // lets you check which cells the camera intersects with
-    nearby_cuboids_recv: Option<crossbeam_channel::Receiver<(Vec<CuboidOffset>, VertexBuffer)>>,
+    // nearby_cuboids_recv: Option<crossbeam_channel::Receiver<(Vec<CuboidOffset>, VertexBuffer)>>,
+    nearby_cuboids_recv: Option<crossbeam_channel::Receiver<NearbyCuboidsInfo>>,
     // which cell indices to change
     coordinates_to_change_trans: Option<crossbeam_channel::Sender<WorldCoordinate>>,
     // to toggle generating chunks, send anything along this channel
@@ -438,7 +439,7 @@ impl App {
         crossbeam_channel::Sender<bool>, // should we quit: send true / false
         crossbeam_channel::Receiver<Vec<VertexBuffer>>, // vertex buffers: recieve Vec<VertexBuffer>
         crossbeam_channel::Sender<nalgebra_glm::Vec3>, // camera position: send na::Vec3
-        crossbeam_channel::Receiver<(Vec<CuboidOffset>, VertexBuffer)>, // nearby cuboids            / nearby cuboids mesh: recieve Vec<CuboidOffset> and VertexBuffer
+        crossbeam_channel::Receiver<NearbyCuboidsInfo>, // nearby cuboids info: recieve a list of CuboidOffsets and an overlay mesh for debugging
         crossbeam_channel::Sender<WorldCoordinate>, // coordinates to change: send Vec<WorldCoordinate>
         crossbeam_channel::Sender<bool>,            // whether to generate chunks or not: send bool
     ) {
@@ -501,9 +502,13 @@ impl App {
 
                     // println!("Got new camera pos! {:?}", camera_pos);
 
-                    // send it - if empty
+                    // send it - if the channel is empty
                     if nearby_cuboids_trans.is_empty() {
-                        nearby_cuboids_trans.send((cuboids, cuboids_mesh)).unwrap();
+                        let nearby_cuboids_info = NearbyCuboidsInfo {
+                            overlay_mesh: cuboids_mesh,
+                            cuboid_offsets: cuboids,
+                        };
+                        nearby_cuboids_trans.send(nearby_cuboids_info).unwrap();
                     }
 
                     // generate a new chunk at the camera's position too
@@ -637,9 +642,9 @@ impl App {
                 .unwrap()
                 .try_recv();
             if result.is_ok() {
-                let isometries_and_mesh = result.unwrap();
-                self.nearby_cuboids = isometries_and_mesh.0;
-                self.vk_stuff.nearby_cuboids_mesh = isometries_and_mesh.1;
+                let nearby_cuboids_info = result.unwrap();
+                self.nearby_cuboids = nearby_cuboids_info.cuboid_offsets;
+                self.vk_stuff.nearby_cuboids_mesh = nearby_cuboids_info.overlay_mesh;
             }
         } else {
             println!("Nearby cuboids reciever uninitialized!");
