@@ -22,6 +22,7 @@ mod camera;
 mod world;
 use super::utils::*;
 
+
 pub struct App {
     // everything graphics-related
     vk_stuff: VkStuff,
@@ -625,7 +626,7 @@ impl App {
         match &self.channels.vbuf_recv {
             Some(vbuf_recv) => match vbuf_recv.try_recv() {
                 Ok(vertex_buffers) => self.vk_stuff.vertex_buffers = vertex_buffers,
-                _ => {} // no new vertex buffers to recieve
+                _ => {} // no new vertex buffers to recieve, ignore
             },
             _ => println!("[MT] Vbuf reciever uninitialized!"),
         }
