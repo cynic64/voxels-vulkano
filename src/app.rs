@@ -22,7 +22,6 @@ mod camera;
 mod world;
 use super::utils::*;
 
-
 pub struct App {
     // everything graphics-related
     vk_stuff: VkStuff,
@@ -631,21 +630,15 @@ impl App {
             _ => println!("[MT] Vbuf reciever uninitialized!"),
         }
 
-        if self.channels.nearby_cuboids_recv.is_some() {
-            // new nearby cuboids
-            let result = self
-                .channels
-                .nearby_cuboids_recv
-                .as_mut()
-                .unwrap()
-                .try_recv();
-            if result.is_ok() {
-                let nearby_cuboids_info = result.unwrap();
-                self.nearby_cuboids = nearby_cuboids_info.cuboid_offsets;
-                self.vk_stuff.nearby_cuboids_mesh = nearby_cuboids_info.overlay_mesh;
-            }
-        } else {
-            println!("Nearby cuboids reciever uninitialized!");
+        match &self.channels.nearby_cuboids_recv {
+            Some(nearby_cuboids_recv) => match nearby_cuboids_recv.try_recv() {
+                Ok(nearby_cuboids_info) => {
+                    self.nearby_cuboids = nearby_cuboids_info.cuboid_offsets;
+                    self.vk_stuff.nearby_cuboids_mesh = nearby_cuboids_info.overlay_mesh;
+                }
+                _ => {} // no new nearby_cuboids info, do nothing
+            },
+            _ => println!("[MT] Nearby cuboids reciever uninitialized!"),
         }
     }
 
@@ -816,13 +809,9 @@ impl App {
         if toggle_generating_chunks {
             println!("Toggling chunk generation");
 
-            if self.channels.toggle_generating_chunks_trans.is_some() {
-                self.channels
-                    .toggle_generating_chunks_trans
-                    .as_mut()
-                    .unwrap()
-                    .send(true)
-                    .unwrap();
+            match &self.channels.toggle_generating_chunks_trans {
+                Some(channel) => channel.send(true).unwrap(),
+                _ => {}
             }
         }
 
@@ -1105,13 +1094,13 @@ impl App {
         self.vk_stuff.view = self.cam.get_view_matrix().into();
 
         // send a message with the camera position to the vbuf'ing thread - if there is space
-        if self.channels.cam_pos_trans.is_some() {
-            let chan = self.channels.cam_pos_trans.as_mut().unwrap();
-            if chan.is_empty() {
-                chan.send(self.cam.position).unwrap();
+        match &self.channels.cam_pos_trans {
+            Some(channel) => {
+                if channel.is_empty() {
+                    channel.send(self.cam.position).unwrap();
+                }
             }
-        } else {
-            println!("    [UC] Camera-pos channel uninitialized!");
+            _ => {}
         }
     }
 
@@ -1131,22 +1120,24 @@ impl App {
         // this is where the closest distance is recorded
         let mut closest_toi = None;
 
+        // go through all nearby cuboidis and see which one is closest and intersects
+        // the ray of sight, if any
         for nearby_cuboid_isometry in self.nearby_cuboids.iter() {
-            let toi = cuboid.toi_with_ray(&nearby_cuboid_isometry, &ray, true);
-            if toi.is_some() {
-                // there is an intersection!
-                // if closest_toi is None, make this cuboid closest_toi
-                if closest_toi.is_none() {
-                    // also store the time of intersection for later
-                    closest_toi = Some(toi.unwrap());
-                } else {
-                    // the camera is pointing at multiple things. see whether this cuboid is closer,
-                    // and only if that is the case change closest_toi.
-                    if toi.unwrap() < closest_toi.unwrap() {
-                        // this cuboid is closer
-                        closest_toi = Some(toi.unwrap());
+            match cuboid.toi_with_ray(&nearby_cuboid_isometry, &ray, true) {
+                Some(toi) => {
+                    // there is an intersection!
+                    match closest_toi {
+                        Some(toi_to_beat) => {
+                            if toi < toi_to_beat {
+                                // if closest_to is some, only replace it if this intersection
+                                // is closer
+                                closest_toi = Some(toi);
+                            }
+                        }
+                        _ => closest_toi = Some(toi), // if it is none make this intersection closest_toi
                     }
                 }
+                _ => {} // no intersection so we can't place a block
             }
         }
 
@@ -1171,9 +1162,9 @@ impl App {
             };
 
             // send it
-            if self.channels.coordinates_to_change_trans.is_some() {
-                let chan = self.channels.coordinates_to_change_trans.as_mut().unwrap();
-                chan.send(coordinate).unwrap();
+            match &self.channels.coordinates_to_change_trans {
+                Some(channel) => channel.send(coordinate).unwrap(),
+                _ => println!("Coordinates_to_change_trans uninitialized!"),
             }
         }
     }
