@@ -69,7 +69,7 @@ pub fn make_empty_vbuf(queue: Arc<vulkano::device::Queue>) -> VertexBuffer {
 }
 
 pub fn xyz_to_linear(x: usize, y: usize, z: usize) -> usize {
-    z * (CHUNK_SIZE * CHUNK_SIZE) + y * CHUNK_SIZE + x
+    y * (CHUNK_SIZE * CHUNK_SIZE) + z * CHUNK_SIZE + x
 }
 
 pub fn world_coord_to_subchunk_axis(value: f32) -> usize {

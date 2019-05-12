@@ -338,15 +338,7 @@ impl App {
             toggle_generating_chunks_trans: None,
         };
 
-        let mut draw_text =
-            DrawText::new(device.clone(), queue.clone(), swapchain.clone(), &images);
-        draw_text.queue_text(
-            200.0,
-            50.0,
-            20.0,
-            [1.0, 1.0, 1.0, 1.0],
-            "The quick brown fox jumps over the lazy dog.",
-        );
+        let draw_text = DrawText::new(device.clone(), queue.clone(), swapchain.clone(), &images);
 
         App {
             vk_stuff: VkStuff {
@@ -1006,7 +998,7 @@ impl App {
                 20.0,
                 [1.0, 1.0, 1.0, 0.8],
                 &format!(
-                    "x: {:.2}, y: {:.2}, z: {:.2}",
+                    "camera x: {:.2}, y: {:.2}, z: {:.2}",
                     self.cam.position.x, self.cam.position.y, self.cam.position.z
                 ),
             );
@@ -1025,6 +1017,18 @@ impl App {
                 &format!(
                     "# of vertex buffers: {}",
                     self.vk_stuff.vertex_buffers.len()
+                ),
+            );
+            self.vk_stuff.draw_text.queue_text(
+                50.0,
+                110.0,
+                20.0,
+                [1.0, 1.0, 1.0, 0.8],
+                &format!(
+                    "chunk coordinate x: {}, y: {}, z: {}",
+                    (self.cam.position.x / 32.0).round() as i32,
+                    (self.cam.position.y / 32.0).round() as i32,
+                    (self.cam.position.z / 32.0).round() as i32,
                 ),
             );
 

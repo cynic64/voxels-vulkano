@@ -73,11 +73,7 @@ impl World {
         let subchunk_x = world_coord_to_subchunk_axis(coord.x);
         let subchunk_y = world_coord_to_subchunk_axis(coord.y);
         let subchunk_z = world_coord_to_subchunk_axis(coord.z);
-        println!(
-            "scx: {}, scy: {}, scz: {}",
-            subchunk_x, subchunk_y, subchunk_z
-        );
-        let subchunk_idx = xyz_to_linear(subchunk_x, subchunk_z, subchunk_y);
+        let subchunk_idx = xyz_to_linear(subchunk_x, subchunk_y, subchunk_z);
 
         // find the idx of the chunk with matching ch_coord
         // and change the correct idx within it

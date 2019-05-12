@@ -135,8 +135,8 @@ impl Chunk {
         let s = CHUNK_SIZE;
         let coef = 0.5;
         self.cells = (0..s)
-            .map(move |z| {
-                (0..s).map(move |y| {
+            .map(move |y| {
+                (0..s).map(move |z| {
                     (0..s).map(move |x| {
                         if (x as f32 * coef).sin()
                             + ((y / 2) as f32 * coef).sin()
@@ -178,8 +178,8 @@ impl Chunk {
             .filter_map(|(x_off, y_off, z_off)| {
                 // double conversion is to round down...
                 let new_rel_x = ((relative_cam_x + (*x_off as f32)) as i32) as f32;
-                let new_rel_y = ((relative_cam_z + (*z_off as f32)) as i32) as f32;
-                let new_rel_z = ((relative_cam_y + (*y_off as f32)) as i32) as f32;
+                let new_rel_y = ((relative_cam_y + (*y_off as f32)) as i32) as f32;
+                let new_rel_z = ((relative_cam_z + (*z_off as f32)) as i32) as f32;
 
                 let out_of_bounds = (new_rel_x < 0.0)
                     || (new_rel_y < 0.0)
@@ -194,11 +194,11 @@ impl Chunk {
                         // finally, the interesting part: we found a block close to the camera!
                         // generate a cuboid for it
                         let new_absolute_x = new_rel_x + self.offset.0;
-                        let new_absolute_y = new_rel_y + self.offset.2;
-                        let new_absolute_z = new_rel_z + self.offset.1;
+                        let new_absolute_y = new_rel_y + self.offset.1;
+                        let new_absolute_z = new_rel_z + self.offset.2;
 
                         let isometry = Isometry3::from_parts(
-                            Translation3::new(new_absolute_x, new_absolute_z, new_absolute_y),
+                            Translation3::new(new_absolute_x, new_absolute_y, new_absolute_z),
                             UnitQuaternion::from_scaled_axis(Vector3::y() * 0.0),
                         );
 
@@ -337,7 +337,6 @@ impl Chunk {
         let max_dist = 9;
         let mut offsets = vec![(0, 0, 0)];
 
-        // the hard part is making the cuboids in an order such that the closest comes first.
         for distance in 1..=max_dist {
             for offset_1 in -max_dist..=max_dist {
                 for offset_2 in -max_dist..=max_dist {
