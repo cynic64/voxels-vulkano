@@ -6,6 +6,9 @@ use nalgebra_glm::Vec3;
 use super::super::super::utils::*;
 use std::sync::Arc;
 
+extern crate noise;
+use noise::{Perlin, NoiseFn};
+
 #[rustfmt::skip]
 pub const CUBE_CORNERS: [CubeCorner; 8] = [
     CubeCorner { position: (-0.5, -0.5, -0.5), neighbors: [Offset { right: -1, up: -1, front: -1},   Offset { right: -1, up: -1, front:  0},   Offset { right: -1, up:  0, front: -1},   Offset { right: -1, up:  0, front:  0},  Offset { right:  0, up: -1, front: -1},    Offset { right:  0, up: -1, front:  0},   Offset { right:  0, up:  0, front: -1},  Offset { right:  0, up:  0, front:  0} ] },
@@ -134,19 +137,24 @@ impl Chunk {
 
         let s = CHUNK_SIZE;
         let coef = 0.5;
+        let perlin = Perlin::new();
+        let ccx = self.chunk_coord.x;
+        let ccy = self.chunk_coord.y;
+        let ccz = self.chunk_coord.z;
         self.cells = (0..s)
             .map(move |y| {
                 (0..s).map(move |z| {
                     (0..s).map(move |x| {
-                        if (x as f32 * coef).sin()
-                            + ((y / 2) as f32 * coef).sin()
-                            + ((z / 3) as f32 * coef).sin()
-                            > 0.0
-                        {
-                            1
-                        } else {
-                            0
-                        }
+                        perlin.get([(x as f64) / (CHUNK_SIZE as f64) + (ccx as f64), (y as f64) / (CHUNK_SIZE as f64) + (ccy as f64), (z as f64) / (CHUNK_SIZE as f64) + (ccz as f64)]).round() as u8
+                        // if (x as f32 * coef).sin()
+                        //     + ((y / 2) as f32 * coef).sin()
+                        //     + ((z / 3) as f32 * coef).sin()
+                        //     > 0.0
+                        // {
+                        //     1
+                        // } else {
+                        //     0
+                        // }
                     })
                 })
             })
