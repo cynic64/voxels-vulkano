@@ -57,9 +57,9 @@ impl World {
         println!("placing block!");
         // figure out which chunk coord is in by dividing by 32
         let ch_coord = ChunkCoordinate {
-            x: (coord.x / 32.0).round() as i32,
-            y: (coord.y / 32.0).round() as i32,
-            z: (coord.z / 32.0).round() as i32,
+            x: ((coord.x + 0.5) / 32.0).round() as i32, // +0.5 to account for the fact that blocks are centered on their coordinates
+            y: ((coord.y + 0.5) / 32.0).round() as i32,
+            z: ((coord.z + 0.5) / 32.0).round() as i32,
         };
 
         // figure out which idx within the chunk to change by

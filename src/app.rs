@@ -1026,9 +1026,9 @@ impl App {
                 [1.0, 1.0, 1.0, 0.8],
                 &format!(
                     "chunk coordinate x: {}, y: {}, z: {}",
-                    (self.cam.position.x / 32.0).round() as i32,
-                    (self.cam.position.y / 32.0).round() as i32,
-                    (self.cam.position.z / 32.0).round() as i32,
+                    ((self.cam.position.x + 0.5) / 32.0).round() as i32,
+                    ((self.cam.position.y + 0.5) / 32.0).round() as i32,
+                    ((self.cam.position.z + 0.5) / 32.0).round() as i32,
                 ),
             );
 
