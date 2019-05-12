@@ -506,12 +506,24 @@ impl App {
                     // generate a new chunk at the camera's position too
                     // todo: less magic numbers
                     if should_generate_chunks {
-                        let ch_coord = ChunkCoordinate {
+                        let base_ch_coord = ChunkCoordinate {
                             x: (camera_pos.x / 32.0).round() as i32,
                             y: (camera_pos.y / 32.0).round() as i32,
                             z: (camera_pos.z / 32.0).round() as i32,
                         };
-                        world.generate_chunk_at(ch_coord);
+                        let offsets = [
+                            [-1, -1, -1], [-1, -1, 0], [-1, -1, 1], [-1, 0, -1], [-1, 0, 0], [-1, 0, 1], [-1, 1, -1], [-1, 1, 0], [-1, 1, 1],
+                            [0, -1, -1], [0, -1, 0], [0, -1, 1], [0, 0, -1], [0, 0, 0], [0, 0, 1], [0, 1, -1], [0, 1, 0], [0, 1, 1],
+                            [1, -1, -1], [1, -1, 0], [1, -1, 1], [1, 0, -1], [1, 0, 0], [1, 0, 1], [1, 1, -1], [1, 1, 0], [1, 1, 1],
+                        ];
+                        for offset in offsets.iter() {
+                            let new_ch_coord = ChunkCoordinate {
+                                x: base_ch_coord.x + offset[0],
+                                y: base_ch_coord.y + offset[1],
+                                z: base_ch_coord.z + offset[2],
+                            };
+                            world.generate_chunk_at(new_ch_coord);
+                        }
                         should_update_vbuf = true;
                     }
                 }
