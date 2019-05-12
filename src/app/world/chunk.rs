@@ -325,8 +325,8 @@ impl Chunk {
                 self.cells[idx - (size * size) - size],
                 self.cells[idx - (size * size) - size - 1],
             ]
-        // otherwise just don't count neighbors period
         } else {
+            // otherwise just don't count neighbors
             [0; 26]
         };
 
@@ -373,10 +373,19 @@ impl Offset {
 impl Face {
     fn is_visible(&self, cells: &[u8], idx: usize) -> bool {
         let neighbor_idx = ((idx as i32) + self.facing.get_idx_offset()) as usize;
+        let x = neighbor_idx % CHUNK_SIZE;
+        let y = neighbor_idx % (CHUNK_SIZE * CHUNK_SIZE) / CHUNK_SIZE;
+        let z = neighbor_idx / (CHUNK_SIZE * CHUNK_SIZE);
 
-        if neighbor_idx >= (CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) {
-            // prevent overflow
-            // just assume it's visible if it's close to the chunk boundary
+        if x < 2
+            || x >= CHUNK_SIZE - 2
+            || y < 2
+            || y >= CHUNK_SIZE - 2
+            || z < 2
+            || z >= CHUNK_SIZE - 2
+        {
+            // just assume it's visible if it's close to the edge of the chunk,
+            // because we can't tell without looking at other chunks
             true
         } else {
             cells[neighbor_idx] == 0
