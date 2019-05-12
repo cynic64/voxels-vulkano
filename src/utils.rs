@@ -33,6 +33,12 @@ pub struct ChunkCoordinate {
     pub z: i32,
 }
 
+impl PartialEq for ChunkCoordinate {
+    fn eq(&self, other: &ChunkCoordinate) -> bool {
+        (self.x == other.x) && (self.y == other.y) && (self.z == other.z)
+    }
+}
+
 // xy thing for screen coordinates, not vulkan ones.
 pub struct ScreenCoordinate {
     pub x: f32,

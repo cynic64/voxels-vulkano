@@ -24,10 +24,7 @@ impl World {
         // check if it already exists
         let mut already_exists = false;
         for chunk in self.chunks.iter() {
-            if chunk.chunk_coord.x == coord.x
-                && chunk.chunk_coord.y == coord.y
-                && chunk.chunk_coord.z == coord.z
-            {
+            if chunk.chunk_coord == coord {
                 already_exists = true;
             }
         }
