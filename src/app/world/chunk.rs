@@ -33,14 +33,20 @@ pub const CUBE_FACES: [Face; 6] = [
 
 pub struct Chunk {
     pub cells: Vec<u8>,
+
     // coordinates of this chunk
     pub chunk_coord: ChunkCoordinate,
+
+    pub has_been_modified: bool,
     // coordinates of the corner of this chunk in 3d space
     offset: (f32, f32, f32),
+
     // the vertex buffer is cached here
     vbuf: VertexBuffer,
+
     // a list of the 3d coordinates, listed in the same order as cells
     positions: Vec<(f32, f32, f32)>,
+
     // 3d offsets for which cells are considered "nearby"
     nearby_cuboids_offsets: Vec<(i32, i32, i32)>,
 }
@@ -85,6 +91,7 @@ impl Chunk {
         Chunk {
             cells,
             chunk_coord,
+            has_been_modified: false,
             offset,
             vbuf: make_empty_vbuf(queue),
             positions: vec![],
@@ -132,6 +139,8 @@ impl Chunk {
             let y = idx / (CHUNK_SIZE * CHUNK_SIZE);
             (noise_gen.get([((x as f64) / (CHUNK_SIZE as f64) + (ccx as f64)) / 1.5, ((y as f64) / (CHUNK_SIZE as f64) + (ccy as f64)) / 1.5, ((z as f64) / (CHUNK_SIZE as f64) + (ccz as f64)) / 1.5]) * 0.8).round() as u8
         }).collect::<Vec<_>>();
+
+        self.has_been_modified = true;
     }
 
     pub fn generate_cuboids_close_to(&self, camera_position: Vec3) -> Vec<CuboidOffset> {

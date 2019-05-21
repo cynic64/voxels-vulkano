@@ -81,11 +81,26 @@ impl World {
             {
                 println!("found a match! placing at {}", subchunk_idx);
                 chunk.cells[subchunk_idx] = new_state;
+                chunk.has_been_modified = true;
             }
         });
     }
 
-    pub fn update_vbufs(&mut self) {
+    pub fn update_changed_vbufs(&mut self) {
+        let q = self.queue.clone();
+
+        self.chunks.
+            iter_mut()
+            .for_each(|chunk| {
+                if chunk.has_been_modified {
+                    chunk.update_vbuf(q.clone());
+                    chunk.has_been_modified = false;
+                }
+            });
+    }
+
+    pub fn update_all_vbufs(&mut self) {
+        // generates meshes for every vertex buffer, whether it has been changed or not.
         // borrow checker still isn't great with closures
         let q = self.queue.clone();
 

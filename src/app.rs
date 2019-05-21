@@ -474,7 +474,7 @@ impl App {
 
                 // get new vbufs and send them, maybe
                 if should_update_vbuf {
-                    world.update_vbufs();
+                    world.update_changed_vbufs();
                     let vbufs = world.get_vbufs();
 
                     // only send the vbuf if there's nothing in the channel already
@@ -491,8 +491,6 @@ impl App {
                     let camera_pos = result.unwrap();
                     let cuboids = world.generate_nearby_cuboids(camera_pos);
                     let cuboids_mesh = generate_mesh_for_cuboids(queue.clone(), &cuboids);
-
-                    // println!("Got new camera pos! {:?}", camera_pos);
 
                     // send it - if the channel is empty
                     if nearby_cuboids_trans.is_empty() {
