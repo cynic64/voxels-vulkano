@@ -119,48 +119,19 @@ impl Chunk {
     }
 
     pub fn randomize_state(&mut self) {
-        // doesn't actually randomize it :p
+        let noise_gen = Perlin::new();
 
-        // self.cells = (0..CHUNK_SIZE)
-        //     .map(|_| {
-        //         (0..CHUNK_SIZE)
-        //             .map(|_| {
-        //                 (0..CHUNK_SIZE)
-        //                     .map(|_| if rand::random::<bool>() { 1 } else { 0 })
-        //                     .collect::<Vec<_>>()
-        //             })
-        //             .collect::<Vec<_>>()
-        //     })
-        //     .flatten()
-        //     .flatten()
-        //     .collect();
-
-        let s = CHUNK_SIZE;
-        let coef = 0.5;
-        let perlin = Perlin::new();
+        // borrow checker complains otherwise because closures are still picky
         let ccx = self.chunk_coord.x;
         let ccy = self.chunk_coord.y;
         let ccz = self.chunk_coord.z;
-        self.cells = (0..s)
-            .map(move |y| {
-                (0..s).map(move |z| {
-                    (0..s).map(move |x| {
-                        perlin.get([(x as f64) / (CHUNK_SIZE as f64) + (ccx as f64), (y as f64) / (CHUNK_SIZE as f64) + (ccy as f64), (z as f64) / (CHUNK_SIZE as f64) + (ccz as f64)]).round() as u8
-                        // if (x as f32 * coef).sin()
-                        //     + ((y / 2) as f32 * coef).sin()
-                        //     + ((z / 3) as f32 * coef).sin()
-                        //     > 0.0
-                        // {
-                        //     1
-                        // } else {
-                        //     0
-                        // }
-                    })
-                })
-            })
-            .flatten()
-            .flatten()
-            .collect::<Vec<_>>();
+        self.cells = (0..(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE)).map(|idx| {
+            // z and y need to be swapped here because the chunks are kinda twisted. gotta fix this.
+            let x = idx % CHUNK_SIZE;
+            let z = idx % (CHUNK_SIZE * CHUNK_SIZE) / CHUNK_SIZE;
+            let y = idx / (CHUNK_SIZE * CHUNK_SIZE);
+            (noise_gen.get([((x as f64) / (CHUNK_SIZE as f64) + (ccx as f64)) / 1.5, ((y as f64) / (CHUNK_SIZE as f64) + (ccy as f64)) / 1.5, ((z as f64) / (CHUNK_SIZE as f64) + (ccz as f64)) / 1.5]) * 0.8).round() as u8
+        }).collect::<Vec<_>>();
     }
 
     pub fn generate_cuboids_close_to(&self, camera_position: Vec3) -> Vec<CuboidOffset> {
