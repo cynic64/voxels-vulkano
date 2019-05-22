@@ -509,18 +509,17 @@ impl App {
                             y: (camera_pos.y / 32.0).round() as i32,
                             z: (camera_pos.z / 32.0).round() as i32,
                         };
-                        let offsets = [
-                            [-1, -1, -1], [-1, -1, 0], [-1, -1, 1], [-1, 0, -1], [-1, 0, 0], [-1, 0, 1], [-1, 1, -1], [-1, 1, 0], [-1, 1, 1],
-                            [0, -1, -1], [0, -1, 0], [0, -1, 1], [0, 0, -1], [0, 0, 0], [0, 0, 1], [0, 1, -1], [0, 1, 0], [0, 1, 1],
-                            [1, -1, -1], [1, -1, 0], [1, -1, 1], [1, 0, -1], [1, 0, 0], [1, 0, 1], [1, 1, -1], [1, 1, 0], [1, 1, 1],
-                        ];
-                        for offset in offsets.iter() {
-                            let new_ch_coord = ChunkCoordinate {
-                                x: base_ch_coord.x + offset[0],
-                                y: base_ch_coord.y + offset[1],
-                                z: base_ch_coord.z + offset[2],
-                            };
-                            world.generate_chunk_at(new_ch_coord);
+                        for offset_x in -2..3 {
+                            for offset_y in -2..3 {
+                                for offset_z in -2..3 {
+                                    let new_ch_coord = ChunkCoordinate {
+                                        x: base_ch_coord.x + offset_x,
+                                        y: base_ch_coord.y + offset_y,
+                                        z: base_ch_coord.z + offset_z,
+                                    };
+                                    world.generate_chunk_at(new_ch_coord);
+                                }
+                            }
                         }
                         should_update_vbuf = true;
                     }
