@@ -1147,9 +1147,9 @@ impl App {
 
         // if the camera is pointing at something, figure out where a block should be placed
         if let Some(toi) = closest_toi {
-            let x_offset = dir.x * toi;
-            let y_offset = dir.y * toi;
-            let z_offset = dir.z * toi;
+            let x_offset = dir.x * (toi - 0.01);
+            let y_offset = dir.y * (toi - 0.01);
+            let z_offset = dir.z * (toi - 0.01);
 
             // + 0.5 to round
             let new_x = ((orig.x + x_offset) + 0.5).floor();

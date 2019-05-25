@@ -108,10 +108,6 @@ impl World {
             .for_each(|chunk| chunk.update_vbuf(q.clone()));
     }
 
-    pub fn idk(self) {
-        println!("yo!");
-    }
-
     pub fn get_vbufs(&self) -> Vec<VertexBuffer> {
         self.chunks.iter().map(chunk::Chunk::get_vbuf).collect()
     }
