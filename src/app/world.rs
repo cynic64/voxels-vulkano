@@ -89,16 +89,15 @@ impl World {
     pub fn update_changed_vbufs(&mut self) {
         let q = self.queue.clone();
 
-        self.chunks.
-            iter_mut()
-            .for_each(|chunk| {
-                if chunk.has_been_modified {
-                    chunk.update_vbuf(q.clone());
-                    chunk.has_been_modified = false;
-                }
-            });
+        self.chunks.iter_mut().for_each(|chunk| {
+            if chunk.has_been_modified {
+                chunk.update_vbuf(q.clone());
+                chunk.has_been_modified = false;
+            }
+        });
     }
 
+    #[allow(dead_code)]
     pub fn update_all_vbufs(&mut self) {
         // generates meshes for every vertex buffer, whether it has been changed or not.
         // borrow checker still isn't great with closures
@@ -107,6 +106,10 @@ impl World {
         self.chunks
             .iter_mut()
             .for_each(|chunk| chunk.update_vbuf(q.clone()));
+    }
+
+    pub fn idk(self) {
+        println!("yo!");
     }
 
     pub fn get_vbufs(&self) -> Vec<VertexBuffer> {

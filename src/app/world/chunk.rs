@@ -7,7 +7,7 @@ use super::super::super::utils::*;
 use std::sync::Arc;
 
 extern crate noise;
-use noise::{Perlin, NoiseFn};
+use noise::{NoiseFn, Perlin};
 
 #[rustfmt::skip]
 pub const CUBE_CORNERS: [CubeCorner; 8] = [
@@ -132,13 +132,20 @@ impl Chunk {
         let ccx = self.chunk_coord.x;
         let ccy = self.chunk_coord.y;
         let ccz = self.chunk_coord.z;
-        self.cells = (0..(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE)).map(|idx| {
-            // z and y need to be swapped here because the chunks are kinda twisted. gotta fix this.
-            let x = idx % CHUNK_SIZE;
-            let z = idx % (CHUNK_SIZE * CHUNK_SIZE) / CHUNK_SIZE;
-            let y = idx / (CHUNK_SIZE * CHUNK_SIZE);
-            (noise_gen.get([((x as f64) / (CHUNK_SIZE as f64) + (ccx as f64)) / 1.5, ((y as f64) / (CHUNK_SIZE as f64) + (ccy as f64)) / 1.5, ((z as f64) / (CHUNK_SIZE as f64) + (ccz as f64)) / 1.5]) * 0.8).round() as u8
-        }).collect::<Vec<_>>();
+        self.cells = (0..(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE))
+            .map(|idx| {
+                // z and y need to be swapped here because the chunks are kinda twisted. gotta fix this.
+                let x = idx % CHUNK_SIZE;
+                let z = idx % (CHUNK_SIZE * CHUNK_SIZE) / CHUNK_SIZE;
+                let y = idx / (CHUNK_SIZE * CHUNK_SIZE);
+                (noise_gen.get([
+                    ((x as f64) / (CHUNK_SIZE as f64) + (ccx as f64)) / 1.5,
+                    ((y as f64) / (CHUNK_SIZE as f64) + (ccy as f64)) / 1.5,
+                    ((z as f64) / (CHUNK_SIZE as f64) + (ccz as f64)) / 1.5,
+                ]) * 0.8)
+                    .round() as u8
+            })
+            .collect::<Vec<_>>();
 
         self.has_been_modified = true;
     }
