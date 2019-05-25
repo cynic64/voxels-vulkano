@@ -91,3 +91,13 @@ pub fn world_coord_to_subchunk_axis(value: f32) -> usize {
         (value + 32.0 * ((value / -32.0).ceil())) as usize
     }
 }
+
+pub fn generate_offsets_cube(radius: i32) -> Vec<(i32, i32, i32)> {
+    (-radius..=radius)
+        .flat_map(|x| {
+            (-radius..=radius)
+                .flat_map(|y| (-radius..=radius).map(|z| (x, y, z)).collect::<Vec<_>>())
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>()
+}

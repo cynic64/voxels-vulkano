@@ -456,6 +456,9 @@ impl App {
         // initialize the world
         let mut world = world::World::new(queue.clone());
 
+        // generate offsets for chunk generation (3*2+1= 7 -> 7x7x7)
+        let chunk_gen_offsets = generate_offsets_cube(3);
+
         // spawn the thread
         std::thread::spawn(move || {
             let mut should_update_vbuf = true;
@@ -511,28 +514,37 @@ impl App {
                             y: (camera_pos.y / 32.0).round() as i32,
                             z: (camera_pos.z / 32.0).round() as i32,
                         };
-                        let chunks = (-3..4).into_par_iter().map(|offset_x| {
-                            (-3..4).map(|offset_y| {
-                                (-3..4).filter_map(|offset_z| {
-                                    let new_ch_coord = ChunkCoordinate {
-                                        x: base_ch_coord.x + offset_x,
-                                        y: base_ch_coord.y + offset_y,
-                                        z: base_ch_coord.z + offset_z,
-                                    };
-                                    world.generate_chunk_at(new_ch_coord)
-                                })
-                                .collect::<Vec<_>>()
-                            })
-                            .collect::<Vec<_>>()
-                        })
-                        .collect::<Vec<_>>();
 
-                        for x in chunks {
-                            for l in x {
-                                for chunk in l {
-                                    world.store_chunk(chunk);
-                                }
-                            }
+                        // generate all chunks in a 7x7x7 around the camera
+                        // record the start time for benchmarking
+                        let start_time = std::time::Instant::now();
+
+                        let chunks = chunk_gen_offsets
+                            .par_iter()
+                            .filter_map(|offset| {
+                                let new_ch_coord = ChunkCoordinate {
+                                    x: base_ch_coord.x + offset.0,
+                                    y: base_ch_coord.y + offset.1,
+                                    z: base_ch_coord.z + offset.2,
+                                };
+                                world.generate_chunk_at(new_ch_coord)
+                            })
+                            .collect::<Vec<_>>();
+
+                        // if any chunks were generated, print stats about how long it took
+                        if chunks.len() > 0 {
+                            let time_taken = get_elapsed(start_time);
+                            println!(
+                                "Generated {} chunks in {:.3}, {:.4} per chunk",
+                                chunks.len(),
+                                time_taken,
+                                time_taken / (chunks.len() as f32)
+                            );
+                        }
+
+                        // store them in the world
+                        for chunk in chunks {
+                            world.store_chunk(chunk);
                         }
                         should_update_vbuf = true;
                     }
@@ -821,7 +833,9 @@ impl App {
         if toggle_generating_chunks {
             println!("Toggling chunk generation");
 
-            if let Some(toggle_generating_chunks_trans) = &self.channels.toggle_generating_chunks_trans {
+            if let Some(toggle_generating_chunks_trans) =
+                &self.channels.toggle_generating_chunks_trans
+            {
                 toggle_generating_chunks_trans.send(true).unwrap();
             }
         }

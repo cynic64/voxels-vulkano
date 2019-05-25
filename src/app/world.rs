@@ -42,12 +42,6 @@ impl World {
             chunk.update_positions();
             chunk.randomize_state();
 
-            println!(
-                "Generated chunk at chunk coordinates {:?}. Total # of stored chunks: {}",
-                coord,
-                self.chunks.len()
-            );
-
             Some(chunk)
         } else {
             None
