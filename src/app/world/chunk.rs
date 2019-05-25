@@ -237,15 +237,20 @@ impl Chunk {
                             let pos = corner.position;
 
                             // determine ao of vertex
+                            // FIXME: make distinction between offset, offsets and self.offset clearer.
                             let offsets = &corner.neighbors;
                             let value = self.get_value_of_vertex(idx, offsets);
-                            let x = (offset.0 as f32) / (CHUNK_SIZE as f32);
-                            let y = (offset.1 as f32) / (CHUNK_SIZE as f32);
-                            let z = (offset.2 as f32) / (CHUNK_SIZE as f32);
+                            let x = (offset.0 as f32) + self.offset.0;
+                            let z = (offset.1 as f32) + self.offset.1;
+                            let y = (offset.2 as f32) + self.offset.2;
+                            let r = (x / 100.0).sin() / 2.0 + 0.5;
+                            let g = (y / 100.0).sin() / 2.0 + 0.5;
+                            let b = (z / 100.0).sin() / 2.0 + 0.5;
+
                             let color = if self.cells[idx] == 2 {
                                 (value, 0.0, 0.0, 1.0)
                             } else {
-                                (value * x, value * y, value * z, 1.0)
+                                (value * r, value * g, value * b, 1.0)
                             };
 
                             Vertex {
