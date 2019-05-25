@@ -1164,16 +1164,11 @@ impl App {
             };
 
             // send it
-            match &self.channels.coordinates_to_change_trans {
-                Some(channel) => channel.send(coordinate).unwrap(),
-                _ => println!("Coordinates_to_change_trans uninitialized!"),
+            if let Some(coordinates_to_change_trans) = &self.channels.coordinates_to_change_trans {
+                coordinates_to_change_trans.send(coordinate).unwrap();
+            } else {
+                println!("Coordinates_to_change_trans uninitialized!");
             }
-
-            // if let Some(coordinates_to_change_trans) = &self.channels.coordinates_to_change_trans {
-            //     coordinates_to_change_trans.send(coordinate).unwrap();
-            // } else {
-            //     _ => println!("Coordinates_to_change_trans uninitialized!"),
-            // }
         }
     }
 }
