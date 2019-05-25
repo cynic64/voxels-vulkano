@@ -18,7 +18,7 @@ impl World {
         }
     }
 
-    pub fn generate_chunk_at(&mut self, coord: ChunkCoordinate) {
+    pub fn generate_chunk_at(&self, coord: ChunkCoordinate) -> Option<chunk::Chunk> {
         // generates the chunk at coord - if it has not already been generated.
 
         // check if it already exists
@@ -42,15 +42,21 @@ impl World {
             chunk.update_positions();
             chunk.randomize_state();
 
-            // add it to our chunk list
-            self.chunks.push(chunk);
-
             println!(
-                "Adding chunk at chunk coordinates {:?}. Total # of chunks: {}",
+                "Generated chunk at chunk coordinates {:?}. Total # of stored chunks: {}",
                 coord,
                 self.chunks.len()
             );
+
+            Some(chunk)
+        } else {
+            None
         }
+    }
+
+    pub fn store_chunk(&mut self, chunk: chunk::Chunk) {
+        // pushes the chunk into self.chunks
+        self.chunks.push(chunk);
     }
 
     pub fn change_coordinate(&mut self, coord: WorldCoordinate, new_state: u8) {

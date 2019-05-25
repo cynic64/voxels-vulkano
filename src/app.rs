@@ -17,6 +17,8 @@ use vulkano_text::{DrawText, DrawTextTrait};
 
 use std::sync::Arc;
 
+use rayon::prelude::*;
+
 // my modules
 mod camera;
 mod world;
@@ -509,15 +511,26 @@ impl App {
                             y: (camera_pos.y / 32.0).round() as i32,
                             z: (camera_pos.z / 32.0).round() as i32,
                         };
-                        for offset_x in -2..3 {
-                            for offset_y in -2..3 {
-                                for offset_z in -2..3 {
+                        let chunks = (-3..4).into_par_iter().map(|offset_x| {
+                            (-3..4).map(|offset_y| {
+                                (-3..4).filter_map(|offset_z| {
                                     let new_ch_coord = ChunkCoordinate {
                                         x: base_ch_coord.x + offset_x,
                                         y: base_ch_coord.y + offset_y,
                                         z: base_ch_coord.z + offset_z,
                                     };
-                                    world.generate_chunk_at(new_ch_coord);
+                                    world.generate_chunk_at(new_ch_coord)
+                                })
+                                .collect::<Vec<_>>()
+                            })
+                            .collect::<Vec<_>>()
+                        })
+                        .collect::<Vec<_>>();
+
+                        for x in chunks {
+                            for l in x {
+                                for chunk in l {
+                                    world.store_chunk(chunk);
                                 }
                             }
                         }
