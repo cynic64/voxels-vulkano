@@ -21,8 +21,8 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use test::Bencher;
     use super::*;
+    use test::Bencher;
 
     #[bench]
     fn chunk_generation(b: &mut Bencher) {
@@ -52,11 +52,7 @@ mod tests {
         let queue = queues.next().unwrap();
 
         b.iter(|| {
-            let chunk_coord = utils::ChunkCoordinate {
-                x: 0,
-                y: 0,
-                z: 0,
-            };
+            let chunk_coord = utils::ChunkCoordinate { x: 0, y: 0, z: 0 };
             let offset = (0.0, 0.0, 0.0);
             let mut chunk = self::app::world::chunk::Chunk::new(queue.clone(), chunk_coord, offset);
             chunk.update_positions();
