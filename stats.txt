@@ -1,0 +1,8 @@
+- only creating chunk: 42,000,000 ns/iter (+/- 888,879)
+- creating chunk + generating positions: 45,300,000 ns/iter (+/- 750,621)
+- creating chunk + generating positions + randomizing state: 43,600,000 ns/iter (+/- 800,000) ???
+- creating chunk + generating positions + randomizing state + update_vbuf: 47,600,000 ns/iter (+/- 1,400,000)
+
+--- without generating nearby cuboid offsets each time (most recent version) ---
+- creating chunk:
+- everything: 11,312,297 ns/iter
