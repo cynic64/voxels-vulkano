@@ -45,7 +45,7 @@ pub struct Chunk {
     offset: (f32, f32, f32),
 
     // the vertex buffer is cached here
-    vbuf: VertexBuffer,
+    vbuf: Option<VertexBuffer>,
 
     // a list of the 3d coordinates, listed in the same order as cells
     positions: Vec<(f32, f32, f32)>,
@@ -70,12 +70,17 @@ struct Offset {
 
 impl Chunk {
     pub fn new(
-        queue: Arc<vulkano::device::Queue>,
         chunk_coord: ChunkCoordinate,
         offset: (f32, f32, f32),
     ) -> Self {
+        // Creates a new chunk. Note that this is totally useless until you call:
+        // - .update_positions
+        // - .randomize_state
+        // - .update_vbuf
+
+        // initialize all cells as blank
         let cells = (0..CHUNK_SIZE)
-            .map(|_| (0..CHUNK_SIZE).map(|_| (0..CHUNK_SIZE).map(|_| rand::random())))
+            .map(|_| (0..CHUNK_SIZE).map(|_| (0..CHUNK_SIZE).map(|_| 0)))
             .flatten()
             .flatten()
             .collect();
@@ -91,7 +96,7 @@ impl Chunk {
             chunk_coord,
             has_been_modified: false,
             offset,
-            vbuf: make_empty_vbuf(queue),
+            vbuf: None,
             positions: vec![],
         }
     }
@@ -99,7 +104,7 @@ impl Chunk {
     pub fn update_vbuf(&mut self, queue: Arc<vulkano::device::Queue>) {
         let vertices = self.generate_vertices();
 
-        self.vbuf = vbuf_from_verts(queue, vertices);
+        self.vbuf = Some(vbuf_from_verts(queue, vertices));
     }
 
     pub fn update_positions(&mut self) {
@@ -118,8 +123,12 @@ impl Chunk {
             .collect();
     }
 
-    pub fn get_vbuf(&self) -> VertexBuffer {
-        self.vbuf.clone()
+    pub fn get_vbuf(&self) -> Option<VertexBuffer> {
+        if let Some(vbuf) = &self.vbuf {
+            Some(vbuf.clone())
+        } else {
+            None
+        }
     }
 
     pub fn randomize_state(&mut self) {
@@ -129,6 +138,8 @@ impl Chunk {
         let ccx = self.chunk_coord.x;
         let ccy = self.chunk_coord.y;
         let ccz = self.chunk_coord.z;
+
+        // TODO: iterate over self.positions instead of doing this
         self.cells = (0..(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE))
             .map(|idx| {
                 // z and y need to be swapped here because the chunks are kinda twisted. gotta fix this.

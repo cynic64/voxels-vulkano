@@ -38,7 +38,7 @@ impl World {
 
             // create the chunk
             let mut chunk =
-                chunk::Chunk::new(self.queue.clone(), coord.clone(), (co_x, co_y, co_z));
+                chunk::Chunk::new(coord.clone(), (co_x, co_y, co_z));
             chunk.update_positions();
             chunk.randomize_state();
 
@@ -109,7 +109,7 @@ impl World {
     }
 
     pub fn get_vbufs(&self) -> Vec<VertexBuffer> {
-        self.chunks.iter().map(chunk::Chunk::get_vbuf).collect()
+        self.chunks.iter().filter_map(chunk::Chunk::get_vbuf).collect()
     }
 
     pub fn generate_nearby_cuboids(&self, camera_pos: Vec3) -> Vec<CuboidOffset> {

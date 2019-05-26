@@ -3,6 +3,10 @@
 - creating chunk + generating positions + randomizing state: 43,600,000 ns/iter (+/- 800,000) ???
 - creating chunk + generating positions + randomizing state + update_vbuf: 47,600,000 ns/iter (+/- 1,400,000)
 
---- without generating nearby cuboid offsets each time (most recent version) ---
-- creating chunk:
+--- without generating nearby cuboid offsets each time ---
+- creating chunk: 5,600,000 ns/iter (+/- 200,000)
 - everything: 11,312,297 ns/iter
+
+--- only generating vbuf at randomization ---
+- creating chunk: 27,655 ns/iter (+/- 985)
+- everything: 10,500,000 ns/iter (+/- 560,000)
