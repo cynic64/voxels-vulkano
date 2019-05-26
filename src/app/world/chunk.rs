@@ -105,6 +105,7 @@ impl Chunk {
         let vertices = self.generate_vertices();
 
         self.vbuf = Some(vbuf_from_verts(queue, vertices));
+        self.has_been_modified = false;
     }
 
     pub fn update_positions(&mut self) {

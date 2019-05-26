@@ -460,6 +460,7 @@ impl App {
         let chunk_gen_offsets = generate_offsets_cube(5);
 
         // spawn the thread
+        // FIXME: split this into smaller functions
         std::thread::spawn(move || {
             let mut should_update_vbuf = true;
 
@@ -479,8 +480,12 @@ impl App {
 
                 // get new vbufs and send them, maybe
                 if should_update_vbuf {
+                    let start_time = std::time::Instant::now();
                     world.update_changed_vbufs();
+                    println!("Updated changed vbufs in {:.3} seconds", get_elapsed(start_time));
+
                     let vbufs = world.get_vbufs();
+                    let vbuf_count = vbufs.len();
 
                     // only send the vbuf if there's nothing in the channel already
                     if vbuf_trans.is_empty() {
@@ -527,26 +532,27 @@ impl App {
                                     y: base_ch_coord.y + offset.1,
                                     z: base_ch_coord.z + offset.2,
                                 };
-                                world.generate_chunk_at(new_ch_coord)
+                                world.generate_chunk_at(queue.clone(), new_ch_coord)
                             })
                             .collect::<Vec<_>>();
 
-                        // if any chunks were generated, print stats about how long it took
+                        let chunks_generated = chunks.len();
+                        // if any chunks were generated, print stats about how long it took and store them in the world
                         if chunks.len() > 0 {
                             let time_taken = get_elapsed(start_time);
                             println!(
                                 "Generated {} chunks in {:.3}, {:.4} per chunk",
-                                chunks.len(),
+                                chunks_generated,
                                 time_taken,
-                                time_taken / (chunks.len() as f32)
+                                time_taken / (chunks_generated as f32)
                             );
-                        }
 
-                        // store them in the world
-                        for chunk in chunks {
-                            world.store_chunk(chunk);
+                            // store them in the world
+                            for chunk in chunks {
+                                world.store_chunk(chunk);
+                            }
+                            should_update_vbuf = true;
                         }
-                        should_update_vbuf = true;
                     }
                 }
 

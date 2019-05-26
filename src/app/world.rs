@@ -18,7 +18,7 @@ impl World {
         }
     }
 
-    pub fn generate_chunk_at(&self, coord: ChunkCoordinate) -> Option<chunk::Chunk> {
+    pub fn generate_chunk_at(&self, queue: Arc<vulkano::device::Queue>, coord: ChunkCoordinate) -> Option<chunk::Chunk> {
         // generates the chunk at coord - if it has not already been generated.
 
         // check if it already exists
@@ -41,6 +41,7 @@ impl World {
                 chunk::Chunk::new(coord.clone(), (co_x, co_y, co_z));
             chunk.update_positions();
             chunk.randomize_state();
+            chunk.update_vbuf(queue.clone());
 
             Some(chunk)
         } else {
