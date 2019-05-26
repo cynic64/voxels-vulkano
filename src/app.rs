@@ -485,7 +485,6 @@ impl App {
                     println!("Updated changed vbufs in {:.3} seconds", get_elapsed(start_time));
 
                     let vbufs = world.get_vbufs();
-                    let vbuf_count = vbufs.len();
 
                     // only send the vbuf if there's nothing in the channel already
                     if vbuf_trans.is_empty() {
