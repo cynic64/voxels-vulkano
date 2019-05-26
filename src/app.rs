@@ -456,8 +456,8 @@ impl App {
         // initialize the world
         let mut world = world::World::new(queue.clone());
 
-        // generate offsets for chunk generation (3*2+1= 7 -> 7x7x7)
-        let chunk_gen_offsets = generate_offsets_cube(3);
+        // generate offsets for chunk generation (5*2+1= 11 -> 11x11x11)
+        let chunk_gen_offsets = generate_offsets_cube(5);
 
         // spawn the thread
         std::thread::spawn(move || {
