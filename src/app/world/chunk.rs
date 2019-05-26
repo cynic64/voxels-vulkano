@@ -38,7 +38,7 @@ pub struct Chunk {
     pub chunk_coord: ChunkCoordinate,
 
     pub has_been_modified: bool,
-    // coordinates of the corner of this chunk in 3d space
+    // coordinates of the center of this chunk in 3d space
     offset: (f32, f32, f32),
 
     // the vertex buffer is cached here

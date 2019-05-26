@@ -21,7 +21,7 @@ use rayon::prelude::*;
 
 // my modules
 mod camera;
-mod world;
+pub mod world;
 use super::utils::*;
 
 pub struct App {
